@@ -1,0 +1,12 @@
+##base _I2C_Base
+##bias 42
+##public
+SetI2CDelay(ticks)(d0)
+##bias 54
+SendI2C(addr,number,data)(d0,d1,a1)
+ReceiveI2C(addr,number,data)(d0,d1,a1)
+GetI2COpponent()()
+I2CErrText(errnum)(d0)
+ShutDownI2C()()
+BringBackI2C()()
+##end
