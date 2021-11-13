@@ -26,8 +26,25 @@
 
 #include <libraries/i2c.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <proto/exec.h>
+#include <proto/utility.h>
+//#include <proto/dos.h>
 
 __saveds STRPTR LibI2CErrText(struct MyLibBase *base __asm("a6"),
 	ULONG errnum __asm("d0"))
 {
+	STRPTR stringpointer;
+
+	base->errortext_magic = 2342134UL;
+//	stringpointer = NULL;
+	stringpointer = (STRPTR)AllocVec(256, 0);
+
+//	strcpy(stringpointer, "Error code 0x");
+
+	sprintf(stringpointer, "ErrorCode 0x%ul", errnum);
+
+	return stringpointer;
 }

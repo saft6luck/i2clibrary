@@ -28,4 +28,5 @@
 
 __saveds void LibInitI2C(struct MyLibBase *base __asm("a6"))
 {
+	base->init_magic = 783487UL;
 }

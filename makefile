@@ -1,16 +1,34 @@
 # Makefile for i2c.library.
 # Generated with LibMaker 0.12.
 
-CC = m68k-amigaos-gcc
-//CC = /opt/gnu-6.5.0b/bin/m68k-amigaos-gcc
-CFLAGS += -s -O2 -noixemul -nostdlib
-CFLAGS += -W -Wall -Wpointer-arith
+#PREFIX = /opt/gnu-6.5.0b/bin/m68k-amigaos-gcc/
+CC = $(PREFIX)m68k-amigaos-gcc
+
+CFLAGS += -s \
+ -O2 \
+ -noixemul \
+ -nostdlib
+
+CFLAGS += -W \
+ -Wall \
+ -Wpointer-arith
 CFLAGS += -Ios-include/
-LD = m68k-amigaos-gcc
-LDFLAGS = -nostartfiles -nostdlib -noixemul
-STRIP = m68k-amigaos-strip --strip-unneeded --remove-section .comment
+LD = $(PREFIX)m68k-amigaos-gcc
+LDFLAGS = -nostartfiles \
+-nostdlib \
+-noixemul
+
+#STRIP = $(PREFIX)m68k-amigaos-strip \
+STRIP = /opt/gnu-6.5.0b/bin/m68k-amigaos-strip \
+
+STRIP = m68k-amigaos-strip \
+ --strip-unneeded \
+ --verbose \
+ --remove-section .comment
+
 OUTPUT = i2c.library
 OBJS = dummy.o library.o
+
 FUNCOBJS = f_alloci2c.o \
  f_freei2c.o \
  f_seti2cdelay.o \
@@ -20,7 +38,10 @@ FUNCOBJS = f_alloci2c.o \
  f_geti2copponent.o \
  f_i2cerrtext.o \
  f_shutdowni2c.o \
- f_bringbacki2c.o
+ f_bringbacki2c.o \
+ akuhei2c.o
+
+LIBS = -lamiga
 
 .PHONY: all clean install
 
@@ -44,10 +65,11 @@ $(METHOBJS): %.o: %.c library.h
 
 $(OUTPUT).db: $(OBJS) $(FUNCOBJS) $(METHOBJS)
 	@echo "Linking $@..."
-	@$(LD) $(LDFLAGS) $(OBJS) $(FUNCOBJS) $(METHOBJS) $(LIBS) -o $(OUTPUT).db
+	$(LD) $(LDFLAGS) $(OBJS) $(FUNCOBJS) $(METHOBJS) $(LIBS) -o $(OUTPUT).db
 
 $(OUTPUT): $(OUTPUT).db
 	@echo "Stripping $<..."
+	@echo "$(STRIP) -o $(OUTPUT) $(OUTPUT).db"
 	@$(STRIP) -o $(OUTPUT) $(OUTPUT).db
 
 library.o: library.c library.h lib_version.h

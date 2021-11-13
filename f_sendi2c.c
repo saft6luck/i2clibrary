@@ -30,4 +30,13 @@
 __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
+	base->send_magic = addr;
+	base->send_magic <<= 8;
+	base->send_magic |= number;
+	base->send_magic <<= 16;
+	base->send_magic |= data[0];
+	base->send_magic <<= 8;
+	base->send_magic |= data[1];
+
+	return base->send_magic;
 }

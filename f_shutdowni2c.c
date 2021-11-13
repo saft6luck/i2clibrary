@@ -28,4 +28,5 @@
 
 __saveds void LibShutDownI2C(struct MyLibBase *base __asm("a6"))
 {
+	base->shutdown_magic = 234234UL;
 }

@@ -19,7 +19,7 @@
 
 //typedef char* STRPTR;
 //typedef const char* CONST_STRPTR;
-//#define STRPTR_TYPEDEF
+#define STRPTR_TYPEDEF
 
 #include <exec/resident.h>
 #include <exec/libraries.h>
@@ -58,12 +58,16 @@ BYTE LibBringBackI2C(struct MyLibBase *base);
 
 BOOL InitResources(struct MyLibBase *base)
 {
+	base->first_added_field = 0;
+	base->initialized_magic = 1234UL;
+	base->open_magic = 4321UL;
 	return TRUE;
 }
 
 
 VOID FreeResources(struct MyLibBase *base)
 {
+	base->freeresources_magic = 3845UL;
 }
 
 

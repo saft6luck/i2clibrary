@@ -30,4 +30,13 @@
 __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
+	base->receive_magic = addr;
+	base->receive_magic <<= 16;
+	base->receive_magic |= number;
+	base->receive_magic <<= 8;
+	base->receive_magic |= data[0];
+	base->receive_magic <<= 8;
+	base->receive_magic |= data[1];
+
+	return base->receive_magic;
 }

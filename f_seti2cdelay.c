@@ -29,4 +29,7 @@
 
 __saveds ULONG LibSetI2CDelay(struct MyLibBase *base __asm("a6"), ULONG ticks __asm("d0"))
 {
+	base->setdelay_magic = ticks;
+
+	return ticks;
 }

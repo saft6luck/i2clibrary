@@ -29,4 +29,6 @@
 
 __saveds BYTE LibBringBackI2C(struct MyLibBase *base __asm("a6"))
 {
+	base->bringback_magic = 871234UL;
+	return 0;
 }
