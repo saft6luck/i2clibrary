@@ -29,6 +29,7 @@
 
 #include "lib_version.h"
 #include "library.h"
+#include "akuhei2c.h"
 
 const char LibName[] = LIBNAME;
 extern const char VTag[];
@@ -54,13 +55,37 @@ STRPTR LibI2CErrText(struct MyLibBase *base, ULONG errnum);
 void LibShutDownI2C(struct MyLibBase *base);
 BYTE LibBringBackI2C(struct MyLibBase *base);
 
-
-
 BOOL InitResources(struct MyLibBase *base)
 {
 	base->first_added_field = 0;
 	base->initialized_magic = 1234UL;
 	base->open_magic = 4321UL;
+
+	base->sc.cp = CLOCKPORT_BASE;
+	base->sc.cur_op = EN_OP_NOP;
+
+	base->sc.sig_intr = -1;
+	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
+		//printf("Couldn't allocate signal\n");
+		return FALSE;
+	}
+	base->sc.sigmask_intr = 1L << base->sc.sig_intr;
+
+	base->sc.MainTask = FindTask(NULL);
+
+	if (base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR)) {
+					base->int6->is_Node.ln_Type = NT_INTERRUPT;
+					base->int6->is_Node.ln_Pri = -60;
+					base->int6->is_Node.ln_Name = "PCA9564";
+					base->int6->is_Data = (APTR)&(base->sc);
+					base->int6->is_Code = (void*)pca9564_isr;
+
+					AddIntServer(INTB_EXTER, base->int6);
+	} else {
+					FreeSignal(base->sc.sig_intr);
+					return FALSE; // I2C_NO_MISC_RESOURCE;
+	}
+
 	return TRUE;
 }
 
