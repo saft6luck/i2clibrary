@@ -36,6 +36,5 @@
 
 __saveds STRPTR LibGetI2COpponent(struct MyLibBase *base __asm("a6"))
 {
-	base->getopponent_magic = 878273642UL;
 	return NULL;
 }

@@ -9,9 +9,9 @@
 #define LIBNAME "i2c.library"
 #define VERSION 40
 #define REVISION 0
-#define DATE "12.10.2016"
-#define VERS "i2c.library 40.0"
-#define VSTRING "i2c.library 40.0 (12.10.2016) for Akuhei (Sakura)"
+#define DATE __DATE__
+#define VERS LIBNAME " " VERSION ".0"
+#define VSTRING LIBNAME " library 40.0 (" DATE " / " __TIME__ ") for Akuhei (Sakura) by SQ7BTI (gcc" __VERSION__ ")"
 #define VERSTAG "\0$VER: " VSTRING
 
 #endif      /* I2C_LIB_VERSION_H */

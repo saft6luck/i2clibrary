@@ -1,5 +1,10 @@
 #include "akuhei2c.h"
 
+void __restore_a4(void)
+{
+    __asm volatile("\tlea ___a4_init, a4");
+}
+
 UBYTE
 clockport_read(pca9564_state_t *sp, UBYTE reg)
 {
@@ -58,10 +63,10 @@ pca9564_exec(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 
 	Wait(sp->sigmask_intr);
 
-	if (sp->cur_result != EN_RESULT_OK) {
-		//printf("OP: failed!\n");
+/*	if (sp->cur_result != EN_RESULT_OK) {
+		printf("OP: failed!\n");
 		pca9564_dump_state(sp);
-	}
+	}*/
 
 	sp->buf_size = 0;
 	sp->slave_addr = 0;
@@ -78,7 +83,7 @@ pca9564_send_start(pca9564_state_t *sp)
 
 }
 
-void
+/*void
 pca9564_dump_state(pca9564_state_t *sp)
 {
 	UBYTE c, s, d;
@@ -86,7 +91,7 @@ pca9564_dump_state(pca9564_state_t *sp)
 	c = clockport_read(sp, I2CCON);
 	s = clockport_read(sp, I2CSTA);
 	d = clockport_read(sp, I2CDAT);
-/*	printf("I2CCON: %x, I2CSTA: %x, I2CDAT: %x\n", c, s, d);
+	printf("I2CCON: %x, I2CSTA: %x, I2CDAT: %x\n", c, s, d);
 	switch (s) {
     case I2CSTA_SLAW_TX_ACK_RX:      0x18
 			printf("SLAW_TX_ACK_RX\n"); break;
@@ -107,14 +112,11 @@ pca9564_dump_state(pca9564_state_t *sp)
 		case I2CSTA_SCL_STUCK:           0x90
 			printf("SCL_STUCK\n"); break;
 		default: break;
-	}*/
-}
+	}
+}*/
 
 /* Interrupt service routine. */
-/*__saveds*/
-__interrupt
-void
-pca9564_isr(pca9564_state_t *sp __asm("a1"))
+__saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 {
 	UBYTE v;
 
@@ -123,13 +125,14 @@ pca9564_isr(pca9564_state_t *sp __asm("a1"))
 
 	if (!(clockport_read(sp, I2CCON) & I2CCON_SI)) {
 		sp->in_isr = FALSE;
-		return;
+		return 0;
 	}
 
 	switch (sp->cur_op) {
 	case EN_OP_READ:
 		switch (clockport_read(sp, I2CSTA)) {
 		case I2CSTA_START_SENT:		/* 0x08 */
+		case I2CSTA_REP_START_SENT:		/* 0x10 */
 			clockport_write(sp, I2CDAT, (sp->slave_addr << 1) | 1);
 			v = clockport_read(sp, I2CCON);
 			v &= ~(I2CCON_SI|I2CCON_STA);
@@ -214,7 +217,6 @@ pca9564_isr(pca9564_state_t *sp __asm("a1"))
 			(sp->bytes_count)++;
 			if (sp->bytes_count < sp->buf_size) {
 				clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
-
 			} else {
 				v |= (I2CCON_STO);
 			}
@@ -243,4 +245,5 @@ pca9564_isr(pca9564_state_t *sp __asm("a1"))
 	}
 
 	sp->in_isr = FALSE;
+	return 0;
 }

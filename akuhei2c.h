@@ -44,16 +44,17 @@
 #define I2CCON_AA               (1 << 7)
 
 #define I2CSTA_START_SENT       0x08
-
-#define I2CSTA_SLAR_TX_ACK_RX   0x40
-#define I2CSTA_SLAR_TX_NACK_RX  0x48
-#define I2CSTA_DATA_RX_ACK_TX   0x50
-#define I2CSTA_DATA_RX_NACK_TX  0x58
+#define I2CSTA_REP_START_SENT   0x10
 
 #define I2CSTA_SLAW_TX_ACK_RX   0x18
 #define I2CSTA_SLAW_TX_NACK_RX  0x20
 #define I2CSTA_DATA_TX_ACK_RX   0x28
 #define I2CSTA_DATA_TX_NACK_RX  0x30
+
+#define I2CSTA_SLAR_TX_ACK_RX   0x40
+#define I2CSTA_SLAR_TX_NACK_RX  0x48
+#define I2CSTA_DATA_RX_ACK_TX   0x50
+#define I2CSTA_DATA_RX_NACK_TX  0x58
 
 #define I2CSTA_IDLE             0xF8
 #define I2CSTA_SDA_STUCK        0x70
@@ -101,8 +102,8 @@ typedef struct {
 
 UBYTE clockport_read(pca9564_state_t *, UBYTE);
 void clockport_write(pca9564_state_t *, UBYTE, UBYTE);
-__interrupt void pca9564_isr(pca9564_state_t * __asm("a1"));
-void pca9564_dump_state(pca9564_state_t *);
+__saveds int pca9564_isr(pca9564_state_t * __asm("a1"));
+/*void pca9564_dump_state(pca9564_state_t *);*/
 void pca9564_send_start(pca9564_state_t *);
 void pca9564_read(pca9564_state_t *, UBYTE, ULONG, UBYTE **);
 void pca9564_write(pca9564_state_t *, UBYTE, ULONG, UBYTE **);

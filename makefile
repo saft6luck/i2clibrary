@@ -11,19 +11,24 @@ CFLAGS += -s \
 
 CFLAGS += -W \
  -Wall \
+ -fbaserel \
  -Wpointer-arith
+
 CFLAGS += -Ios-include/
+
 LD = $(PREFIX)m68k-amigaos-gcc
 LDFLAGS = -nostartfiles \
 -nostdlib \
+-fbaserel \
 -noixemul
 
 #STRIP = $(PREFIX)m68k-amigaos-strip \
-STRIP = /opt/gnu-6.5.0b/bin/m68k-amigaos-strip \
+#STRIP = /opt/gnu-6.5.0b/bin/m68k-amigaos-strip \
+#STRIP = m68k-amigaos-strip
 
 STRIP = m68k-amigaos-strip \
- --strip-unneeded \
  --verbose \
+ --strip-unneeded \
  --remove-section .comment
 
 OUTPUT = i2c.library

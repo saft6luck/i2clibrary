@@ -30,13 +30,23 @@
 __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
-	base->receive_magic = addr;
-	base->receive_magic <<= 16;
-	base->receive_magic |= number;
-	base->receive_magic <<= 8;
-	base->receive_magic |= data[0];
-	base->receive_magic <<= 8;
-	base->receive_magic |= data[1];
+	//LibInitI2C();
+	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
+	clockport_write(&base->sc, I2CCON, I2CCON_CR_330KHZ | I2CCON_ENSIO);
+	//Delay(5);
+	pca9564_read(&base->sc, addr, number, &data);
 
-	return base->receive_magic;
+	if (base->sc.cur_result == EN_RESULT_OK) {
+		return 0; //I2C_OK;
+	} else {
+    /*I2C_REJECT=1,        Data not acknowledged (i.e. unwanted) */
+    /*I2C_NO_REPLY,        Chip address apparently invalid */
+    /*SDA_TRASHED,         SDA line randomly trashed. Timing problem? */
+    /*SDA_LO,              SDA always LO \_wrong interface attached, */
+    /*SDA_HI,              SDA always HI / or none at all? */
+    /*SCL_TIMEOUT,         \_Might make sense for interfaces that can */
+    /*SCL_HI,              / read the clock line, but currently none can. */
+    /*I2C_HARDW_BUSY       Hardware allocation failed */
+		return 1; //I2C_REJECT;
+	}
 }

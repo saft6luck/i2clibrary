@@ -17,22 +17,6 @@ struct MyLibBase
 	struct SignalSemaphore  BaseLock;
 	BOOL                    InitFlag;
 
-	ULONG                   first_added_field;
-	ULONG                   initialized_magic;
-	ULONG                   open_magic;
-
-	ULONG                   bringback_magic;
-	ULONG                   errortext_magic;
-	ULONG                   shutdown_magic;
-	ULONG                   getopponent_magic;
-	ULONG                   receive_magic;
-	ULONG                   send_magic;
-	ULONG                   init_magic;
-	ULONG                   setdelay_magic;
-	ULONG                   free_magic;
-	ULONG                   freeresources_magic;
-	ULONG                   alloc_magic;
-
 	pca9564_state_t         sc;
   struct Interrupt        *int6;
 };

@@ -57,9 +57,9 @@ BYTE LibBringBackI2C(struct MyLibBase *base);
 
 BOOL InitResources(struct MyLibBase *base)
 {
-	base->first_added_field = 0;
-	base->initialized_magic = 1234UL;
-	base->open_magic = 4321UL;
+	//base->first_added_field = 0;
+	//base->initialized_magic = 1234UL;
+	//base->open_magic = 4321UL;
 
 	base->sc.cp = CLOCKPORT_BASE;
 	base->sc.cur_op = EN_OP_NOP;
@@ -73,7 +73,8 @@ BOOL InitResources(struct MyLibBase *base)
 
 	base->sc.MainTask = FindTask(NULL);
 
-	if (base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR)) {
+	base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR);
+	if(base->int6) {
 					base->int6->is_Node.ln_Type = NT_INTERRUPT;
 					base->int6->is_Node.ln_Pri = -60;
 					base->int6->is_Node.ln_Name = "PCA9564";
@@ -92,7 +93,10 @@ BOOL InitResources(struct MyLibBase *base)
 
 VOID FreeResources(struct MyLibBase *base)
 {
-	base->freeresources_magic = 3845UL;
+	//base->freeresources_magic = 3845UL;
+	RemIntServer(INTB_EXTER, base->int6);
+	FreeMem(base->int6, sizeof(struct Interrupt));
+	FreeSignal(base->sc.sig_intr);
 }
 
 
@@ -163,7 +167,8 @@ __saveds struct Library* LibOpen(struct MyLibBase* base __asm("a6"))
 
 	if (!base->InitFlag)
 	{
-		if (InitResources(base)) base->InitFlag = TRUE;
+		if (InitResources(base))
+			base->InitFlag = TRUE;
 		else
 		{
 			FreeResources(base);
@@ -191,7 +196,8 @@ __saveds ULONG LibClose(struct MyLibBase *base __asm("a6"))
 
 	if (--base->LibNode.lib_OpenCnt == 0)
 	{
-		if (base->LibNode.lib_Flags & LIBF_DELEXP) ret = (ULONG)LibExpunge(base);
+		if (base->LibNode.lib_Flags & LIBF_DELEXP)
+			ret = (ULONG)LibExpunge(base);
 	}
 
 	if (ret == 0) ReleaseSemaphore(&base->BaseLock);

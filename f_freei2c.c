@@ -28,6 +28,5 @@
 
 __saveds void LibFreeI2C(struct MyLibBase *base __asm("a6"))
 {
-	base->free_magic = 9938745UL;
 	return;
 }
