@@ -57,16 +57,11 @@ BYTE LibBringBackI2C(struct MyLibBase *base);
 
 BOOL InitResources(struct MyLibBase *base)
 {
-	//base->first_added_field = 0;
-	//base->initialized_magic = 1234UL;
-	//base->open_magic = 4321UL;
-
 	base->sc.cp = CLOCKPORT_BASE;
-	base->sc.cur_op = EN_OP_NOP;
+	base->sc.cur_op = OP_NOP;
 
 	base->sc.sig_intr = -1;
 	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
-		//printf("Couldn't allocate signal\n");
 		return FALSE;
 	}
 	base->sc.sigmask_intr = 1L << base->sc.sig_intr;
@@ -93,7 +88,6 @@ BOOL InitResources(struct MyLibBase *base)
 
 VOID FreeResources(struct MyLibBase *base)
 {
-	//base->freeresources_magic = 3845UL;
 	RemIntServer(INTB_EXTER, base->int6);
 	FreeMem(base->int6, sizeof(struct Interrupt));
 	FreeSignal(base->sc.sig_intr);

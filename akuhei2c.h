@@ -60,23 +60,18 @@
 #define I2CSTA_SDA_STUCK        0x70
 #define I2CSTA_SCL_STUCK        0x90
 
-#define EN_OP_NOP               0xF0
-#define EN_OP_READ              0xF1
-#define EN_OP_WRITE             0xF2
-
-/*typedef enum {
+typedef enum {
         OP_NOP,
         OP_READ,
         OP_WRITE
-} op_t;*/
+} op_t;
 
-#define EN_RESULT_OK            0xE0
-#define EN_RESULT_ERR           0xE1
-
-/*typedef enum {
-        RESULT_OK,
-        RESULT_ERR
-} result_t;*/
+typedef enum {
+        RESULT_OK=0,
+        RESULT_ERR=1,
+        RESULT_NACK=2,
+        RESULT_ARBLOST=3
+} result_t;
 
 /* glorious god object that holds the state of everything in this program; tldr */
 typedef struct {

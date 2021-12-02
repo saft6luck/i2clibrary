@@ -36,17 +36,31 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	//Delay(5);
 	pca9564_read(&base->sc, addr, number, &data);
 
-	if (base->sc.cur_result == EN_RESULT_OK) {
-		return 0; //I2C_OK;
+	if (base->sc.cur_result == RESULT_OK) {
+		return number; //I2C_OK;
 	} else {
-    /*I2C_REJECT=1,        Data not acknowledged (i.e. unwanted) */
-    /*I2C_NO_REPLY,        Chip address apparently invalid */
-    /*SDA_TRASHED,         SDA line randomly trashed. Timing problem? */
-    /*SDA_LO,              SDA always LO \_wrong interface attached, */
-    /*SDA_HI,              SDA always HI / or none at all? */
-    /*SCL_TIMEOUT,         \_Might make sense for interfaces that can */
-    /*SCL_HI,              / read the clock line, but currently none can. */
-    /*I2C_HARDW_BUSY       Hardware allocation failed */
-		return 1; //I2C_REJECT;
+		//		error - may be considered as three UBYTE's: 0x00AABBCC, with
+		//						CC: Zero, if an error occurred.
+		//						BB: I/O error number (see i2c_library.h)
+		//						AA: Allocation error number (see i2c_library.h)
+    //I2C_REJECT=1,        Data not acknowledged (i.e. unwanted)
+    //I2C_NO_REPLY,        Chip address apparently invalid
+    //SDA_TRASHED,         SDA line randomly trashed. Timing problem?
+    //SDA_LO,              SDA always LO \_wrong interface attached,
+    //SDA_HI,              SDA always HI / or none at all?
+    //SCL_TIMEOUT,         \_Might make sense for interfaces that can
+    //SCL_HI,              / read the clock line, but currently none can.
+    //I2C_HARDW_BUSY       Hardware allocation failed
+		switch(base->sc.cur_result) {
+				case 2: //RESULT_NACK:
+					return (2 << 8);
+					break;
+			  case 3: //RESULT_ARBLOST:
+					return (3 << 8);
+					break;
+				default:
+					return (4 << 8);
+				break;
+		}
 	}
 }
