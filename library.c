@@ -57,8 +57,19 @@ BYTE LibBringBackI2C(struct MyLibBase *base);
 
 BOOL InitResources(struct MyLibBase *base)
 {
+	UBYTE s;
 	base->sc.cp = CLOCKPORT_BASE;
 	base->sc.cur_op = OP_NOP;
+
+	if((clockport_read(&base->sc, I2CSTA) != 0xF8)
+	|| (clockport_read(&base->sc, I2CDAT) != 0x00)
+	|| (clockport_read(&base->sc, I2CADR) != 0x00)) {
+		s = clockport_read(&base->sc, I2CADR);
+		clockport_write(&base->sc, I2CADR, ~s);
+		if(!(clockport_read(&base->sc, I2CADR) ^ s)) {
+			return FALSE;
+		}
+	}
 
 	base->sc.sig_intr = -1;
 	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {

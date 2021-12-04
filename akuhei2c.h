@@ -21,6 +21,12 @@
 #define CLOCKPORT_BASE          (UBYTE *)0xD80001
 #define CLOCKPORT_STRIDE        4
 
+#define I2C_PCA_STA		0x00 /* STATUS  Read Only  */
+#define I2C_PCA_TO		0x00 /* TIMEOUT Write Only */
+#define I2C_PCA_DAT		0x01 /* DATA    Read/Write */
+#define I2C_PCA_ADR		0x02 /* OWN ADR Read/Write */
+#define I2C_PCA_CON		0x03 /* CONTROL Read/Write */
+
 #define I2CSTA                  0
 #define I2CTO                   0
 #define I2CDAT                  1
@@ -43,6 +49,13 @@
 #define I2CCON_ENSIO            (1 << 6)
 #define I2CCON_AA               (1 << 7)
 
+#define I2C_PCA_CON_AA		0x80 /* Assert Acknowledge */
+#define I2C_PCA_CON_ENSIO	0x40 /* Enable */
+#define I2C_PCA_CON_STA		0x20 /* Start */
+#define I2C_PCA_CON_STO		0x10 /* Stop */
+#define I2C_PCA_CON_SI		0x08 /* Serial Interrupt */
+#define I2C_PCA_CON_CR		0x07 /* Clock Rate (MASK) */
+
 #define I2CSTA_START_SENT       0x08
 #define I2CSTA_REP_START_SENT   0x10
 
@@ -59,6 +72,8 @@
 #define I2CSTA_IDLE             0xF8
 #define I2CSTA_SDA_STUCK        0x70
 #define I2CSTA_SCL_STUCK        0x90
+#define I2CSTA_ARB_LOST         0x38
+#define I2CSTA_ILLEGAL_COND     0x00
 
 typedef enum {
         OP_NOP,
@@ -67,10 +82,15 @@ typedef enum {
 } op_t;
 
 typedef enum {
-        RESULT_OK=0,
-        RESULT_ERR=1,
-        RESULT_NACK=2,
-        RESULT_ARBLOST=3
+        RESULT_OK=0,        /* Last send/receive was OK */
+        RESULT_REJECT=1,       /* Data not acknowledged (i.e. unwanted) */
+        RESULT_NO_REPLY=2,      /* Chip address apparently invalid */
+        RESULT_SDA_TRASHED=3,
+        RESULT_SDA_LO=4,   /* SDA always LO \_wrong interface attached, */
+        RESULT_SDA_HI=5,
+        RESULT_SCL_TIMEOUT=6,
+        RESULT_SCL_HI=7,
+        RESULT_HARDW_BUSY=8
 } result_t;
 
 /* glorious god object that holds the state of everything in this program; tldr */

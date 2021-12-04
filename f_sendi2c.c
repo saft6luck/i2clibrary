@@ -30,10 +30,13 @@
 __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
+	// Note that a master should not transmit its own slave address
+	if((addr & 0x80) || !addr)
+		return 2 << 8;
 	//LibInitI2C();
 	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
 	clockport_write(&base->sc, I2CCON, I2CCON_CR_330KHZ | I2CCON_ENSIO);
-	//Delay(5);
+
 	pca9564_write(&(base->sc), addr, number, &data);
 
 	if (base->sc.cur_result == RESULT_OK) {
@@ -51,6 +54,9 @@ __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
     //SCL_TIMEOUT,         \_Might make sense for interfaces that can
     //SCL_HI,              / read the clock line, but currently none can.
     //I2C_HARDW_BUSY       Hardware allocation failed
-		return (1 << 8); //(I2C_REJECT << 8);
+
+		return ((base->sc.cur_result & 0xff) << 8);
+
+		//return (1 << 8); //(I2C_REJECT << 8);
 	}
 }

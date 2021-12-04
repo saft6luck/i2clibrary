@@ -30,10 +30,13 @@
 __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
+	// Note that a master should not transmit its own slave address
+	if((addr & 0x80) || !addr)
+		return 2 << 8;
 	//LibInitI2C();
 	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
 	clockport_write(&base->sc, I2CCON, I2CCON_CR_330KHZ | I2CCON_ENSIO);
-	//Delay(5);
+
 	pca9564_read(&base->sc, addr, number, &data);
 
 	if (base->sc.cur_result == RESULT_OK) {
@@ -43,6 +46,15 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 		//						CC: Zero, if an error occurred.
 		//						BB: I/O error number (see i2c_library.h)
 		//						AA: Allocation error number (see i2c_library.h)
+		//RESULT_OK=0,        /* Last send/receive was OK */
+		//RESULT_REJECT=1,       /* Data not acknowledged (i.e. unwanted) */
+		//RESULT_NO_REPLY=2,      /* Chip address apparently invalid */
+		//RESULT_SDA_TRASHED=3,
+		//RESULT_SDA_LO=4,   /* SDA always LO \_wrong interface attached, */
+		//RESULT_SDA_HI=5,
+		//RESULT_SCL_TIMEOUT=6,
+		//RESULT_SCL_HI=7,
+		//RESULT_HARDW_BUSY=8
     //I2C_REJECT=1,        Data not acknowledged (i.e. unwanted)
     //I2C_NO_REPLY,        Chip address apparently invalid
     //SDA_TRASHED,         SDA line randomly trashed. Timing problem?
@@ -51,6 +63,9 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
     //SCL_TIMEOUT,         \_Might make sense for interfaces that can
     //SCL_HI,              / read the clock line, but currently none can.
     //I2C_HARDW_BUSY       Hardware allocation failed
+
+		return ((base->sc.cur_result & 0xff) << 8);
+
 		switch(base->sc.cur_result) {
 				case 2: //RESULT_NACK:
 					return (2 << 8);
@@ -59,7 +74,7 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 					return (3 << 8);
 					break;
 				default:
-					return (4 << 8);
+					return ((base->sc.cur_result & 0xff) << 8);
 				break;
 		}
 	}

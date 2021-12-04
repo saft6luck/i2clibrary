@@ -36,5 +36,5 @@
 
 __saveds STRPTR LibGetI2COpponent(struct MyLibBase *base __asm("a6"))
 {
-	return "Not implemented";
+	return (STRPTR)"Not implemented";
 }

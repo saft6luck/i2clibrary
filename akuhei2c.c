@@ -100,70 +100,66 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 		return 0;
 	}
 
-	switch (sp->cur_op) {
+  switch (sp->cur_op) {
 	case OP_READ:
 		switch (clockport_read(sp, I2CSTA)) {
-      case I2CSTA_START_SENT:		/* 0x08 */
-  			clockport_write(sp, I2CDAT, (sp->slave_addr << 1) | 1);
-  			v = clockport_read(sp, I2CCON);
-  			v &= ~(I2CCON_SI|I2CCON_STA);
-  			clockport_write(sp, I2CCON, v);
-  			break;
-      case I2CSTA_SLAR_TX_ACK_RX:	/* 0x40 */
-  			v = clockport_read(sp, I2CCON);
-  			v &= ~(I2CCON_SI);
+		case I2CSTA_START_SENT:		/* 0x08 */
+			clockport_write(sp, I2CDAT, (sp->slave_addr << 1) | 1);
+			v = clockport_read(sp, I2CCON);
+			v &= ~(I2CCON_SI|I2CCON_STA);
+			clockport_write(sp, I2CCON, v);
+			break;
 
-  			if ((sp->bytes_count+1) < sp->buf_size)
-  				v |= (I2CCON_AA);
-  			else
-  				v &= ~(I2CCON_AA); /* last byte */
+		case I2CSTA_SLAR_TX_ACK_RX:	/* 0x40 */
+			v = clockport_read(sp, I2CCON);
+			v &= ~(I2CCON_SI);
+			if ((sp->bytes_count) <= sp->buf_size)
+				v |= (I2CCON_AA);
+			else
+				v &= ~(I2CCON_AA); /* last byte */
+			clockport_write(sp, I2CCON, v);
+			break;
 
-  			clockport_write(sp, I2CCON, v);
-  			break;
-  		case I2CSTA_SLAR_TX_NACK_RX:	/* 0x48 */
-  			v = clockport_read(sp, I2CCON);
-  			v &= ~(I2CCON_SI);
-  			v |= (I2CCON_STO);	/* send stop */
+		case I2CSTA_SLAR_TX_NACK_RX:	/* 0x48 */
+			v = clockport_read(sp, I2CCON);
+			v &= ~(I2CCON_SI);
+			v |= (I2CCON_STO);	/* send stop */
+			clockport_write(sp, I2CCON, v);
+			sp->cur_result = RESULT_NO_REPLY; /* NO ACK */
+			Signal(sp->MainTask, sp->sigmask_intr);
+			break;
 
-  			clockport_write(sp, I2CCON, v);
-
-  			sp->cur_result = RESULT_ERR;
-  			Signal(sp->MainTask, sp->sigmask_intr);
-  			break;
-  		case I2CSTA_DATA_RX_ACK_TX:	/* 0x50 */
-  			sp->buf[sp->bytes_count] = clockport_read(sp, I2CDAT);
-  			(sp->bytes_count)++;
-
-  			v = clockport_read(sp, I2CCON);
-  			v &= ~(I2CCON_SI);
-
-  			if ((sp->bytes_count+1) < sp->buf_size)
-  				v |= (I2CCON_AA);
-  			else
-  				v &= ~(I2CCON_AA); /* last byte */
-
-  			clockport_write(sp, I2CCON, v);
-  			break;
-    case I2CSTA_DATA_RX_NACK_TX:	/* 0x58 */
+		case I2CSTA_DATA_RX_ACK_TX:	/* 0x50 */
 			sp->buf[sp->bytes_count] = clockport_read(sp, I2CDAT);
 			(sp->bytes_count)++;
+			v = clockport_read(sp, I2CCON);
+			v &= ~(I2CCON_SI);
+			if ((sp->bytes_count+1) < sp->buf_size)
+				v |= (I2CCON_AA);
+			else
+				v &= ~(I2CCON_AA); /* last byte */
+			clockport_write(sp, I2CCON, v);
+			break;
 
+		case I2CSTA_DATA_RX_NACK_TX:	/* 0x58 */
+			sp->buf[sp->bytes_count] = clockport_read(sp, I2CDAT);
+			(sp->bytes_count)++;
 			v = clockport_read(sp, I2CCON);
 			v &= ~(I2CCON_SI);
 			v |= (I2CCON_AA|I2CCON_STO);	/* send stop */
-
 			clockport_write(sp, I2CCON, v);
-
-      sp->cur_result = RESULT_NACK;
+			sp->cur_result = RESULT_OK;
 			Signal(sp->MainTask, sp->sigmask_intr);
 			break;
-		default:
+
+		default: /**/
 			clockport_write(sp, I2CCON, 0);
-			sp->cur_result = RESULT_ERR;
+			sp->cur_result = RESULT_HARDW_BUSY;
 			Signal(sp->MainTask, sp->sigmask_intr);
 			break;
 		}
 		break;
+
 	case OP_WRITE:
 		switch (clockport_read(sp, I2CSTA)) {
 		case I2CSTA_START_SENT:		/* 0x08 */
@@ -172,60 +168,57 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 			v &= ~(I2CCON_SI|I2CCON_STA);
 			clockport_write(sp, I2CCON, v);
 			break;
-		case I2CSTA_SLAW_TX_ACK_RX:	/* 0x18 */
+
+		case I2CSTA_SLAW_TX_ACK_RX:	 /* 0x18 */
+			v = clockport_read(sp, I2CCON);
+			v &= ~(I2CCON_SI|I2CCON_STA);
+			if ((sp->bytes_count) < sp->buf_size) {
+				clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
+				(sp->bytes_count)++;
+			} else {
+				v |= (I2CCON_STO);
+			}
+			clockport_write(sp, I2CCON, v);
+			if (sp->bytes_count == sp->buf_size) {
+				sp->cur_result = RESULT_OK;
+				Signal(sp->MainTask, sp->sigmask_intr);
+			}
+			break;
+
+		case I2CSTA_SLAW_TX_NACK_RX:	/* 0x20 */
       v = clockport_read(sp, I2CCON);
-      v &= ~(I2CCON_SI|I2CCON_STA);
-      if ((sp->bytes_count) < sp->buf_size) {
-        clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
-        (sp->bytes_count)++;
-      } else {
-        v |= (I2CCON_STO);
-      }
-
+      v |= (I2CCON_STO);
       clockport_write(sp, I2CCON, v);
-
-      if (sp->bytes_count == sp->buf_size) {
-        sp->cur_result = RESULT_OK;
-        Signal(sp->MainTask, sp->sigmask_intr);
-      }
-
+      sp->cur_result = RESULT_NO_REPLY;
+      Signal(sp->MainTask, sp->sigmask_intr);
       break;
-    case I2CSTA_SLAW_TX_NACK_RX:	/* 0x20 */
-        v = clockport_read(sp, I2CCON);
-        v |= (I2CCON_STO);
-        clockport_write(sp, I2CCON, v);
-        sp->cur_result = RESULT_ERR;
-        Signal(sp->MainTask, sp->sigmask_intr);
-      break;
+
 		case I2CSTA_DATA_TX_ACK_RX:	/* 0x28 */
 			v = clockport_read(sp, I2CCON);
-
 			(sp->bytes_count)++;
 			if (sp->bytes_count < sp->buf_size) {
 				clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
 			} else {
 				v |= (I2CCON_STO);
 			}
-
 			v &= ~(I2CCON_SI);
 			clockport_write(sp, I2CCON, v);
-
 			if (sp->bytes_count == sp->buf_size) {
 				sp->cur_result = RESULT_OK;
 				Signal(sp->MainTask, sp->sigmask_intr);
 			}
-
 			break;
+
 		default:
 			clockport_write(sp, I2CCON, 0);
-			sp->cur_result = RESULT_ERR;
+			sp->cur_result = RESULT_HARDW_BUSY;
 			Signal(sp->MainTask, sp->sigmask_intr);
 			break;
 		}
 		break;
 	case OP_NOP:
 		clockport_write(sp, I2CCON, 0);
-		sp->cur_result = RESULT_ERR;
+		sp->cur_result = RESULT_OK; //RESULT_HARDW_BUSY;
 		Signal(sp->MainTask, sp->sigmask_intr);
 		break;
 	}
