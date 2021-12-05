@@ -174,7 +174,6 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 			v &= ~(I2CCON_SI|I2CCON_STA);
 			if ((sp->bytes_count) < sp->buf_size) {
 				clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
-				(sp->bytes_count)++;
 			} else {
 				v |= (I2CCON_STO);
 			}
