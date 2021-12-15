@@ -16,7 +16,10 @@
 //#include "SDI_interrupt.h"
 //#include "SDI_compiler.h"
 
-#define DBG                     1
+//#ifdef DEBUG
+#include <clib/debug_protos.h>
+//#include "debug.h"
+//#endif /* DBG */
 
 #define CLOCKPORT_BASE          (UBYTE *)0xD80001
 #define CLOCKPORT_STRIDE        4

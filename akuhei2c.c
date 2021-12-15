@@ -15,7 +15,7 @@ clockport_read(pca9564_state_t *sp, UBYTE reg)
 	v = *ptr;
 #ifdef DEBUG
 	if (!(sp->in_isr))
-		printf("DEBUG: read %x from %p\n", (int) v, (void*) ptr);
+		KPrintF((STRPTR)"DEBUG: read %x from %p\n", (int) v, (void*) ptr);
 #endif /* DEBUG */
 
 	return v;
@@ -29,7 +29,7 @@ clockport_write(pca9564_state_t *sp, UBYTE reg, UBYTE value)
 	ptr = (sp->cp) + (reg * CLOCKPORT_STRIDE);
 #ifdef DEBUG
 	if (!(sp->in_isr))
-		printf("DEBUG: write %x to %p\n", (int) value, (void*) ptr);
+		KPrintF((STRPTR)"DEBUG: write %x to %p\n", (int) value, (void*) ptr);
 #endif /* DEBUG */
 
 	*ptr = value;
@@ -63,10 +63,10 @@ pca9564_exec(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 
 	Wait(sp->sigmask_intr);
 
-/*	if (sp->cur_result != RESULT_OK) {
-		printf("OP: failed!\n");
-		pca9564_dump_state(sp);
-	}*/
+	if (sp->cur_result != RESULT_OK) {
+		KPrintF((STRPTR)"OP: failed!\n");
+		//pca9564_dump_state(sp);
+	}
 
 	sp->buf_size = 0;
 	sp->slave_addr = 0;

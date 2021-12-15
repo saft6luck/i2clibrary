@@ -61,9 +61,7 @@ BOOL InitResources(struct MyLibBase *base)
 	base->sc.cp = CLOCKPORT_BASE;
 	base->sc.cur_op = OP_NOP;
 
-	if((clockport_read(&base->sc, I2CSTA) != 0xF8)
-	|| (clockport_read(&base->sc, I2CDAT) != 0x00)
-	|| (clockport_read(&base->sc, I2CADR) != 0x00)) {
+	if((clockport_read(&base->sc, I2CSTA) != 0xF8)) {
 		s = clockport_read(&base->sc, I2CADR);
 		clockport_write(&base->sc, I2CADR, ~s);
 		if(!(clockport_read(&base->sc, I2CADR) ^ s)) {
