@@ -64,8 +64,10 @@ pca9564_exec(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 	Wait(sp->sigmask_intr);
 
 	if (sp->cur_result != RESULT_OK) {
+#ifdef DEBUG
 		KPrintF((STRPTR)"OP: failed!\n");
 		//pca9564_dump_state(sp);
+#endif /* DEBUG */
 	}
 
 	sp->buf_size = 0;

@@ -16,7 +16,7 @@ CFLAGS += -W \
 
 CFLAGS += -Ios-include/
 
-CFLAGS += -DDEBUG
+#CFLAGS += -DDEBUG
 
 LD = $(PREFIX)m68k-amigaos-gcc
 LDFLAGS = -nostartfiles \
@@ -33,7 +33,7 @@ STRIP = m68k-amigaos-strip \
  --strip-unneeded \
  --remove-section .comment
 
-DBG = -DDEBUG -ldebug
+#DBG = -DDEBUG -ldebug
 
 OUTPUT = i2c.library
 OBJS = dummy.o library.o
@@ -52,7 +52,7 @@ FUNCOBJS = f_alloci2c.o \
 
 LIBS = -lamiga
 LIBS += -lc -lnix
-LIBS += -ldebug
+#LIBS += -ldebug
 
 .PHONY: all clean install
 

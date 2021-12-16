@@ -30,14 +30,30 @@
 __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
+	LONG sig;
+
 	// Note that a master should not transmit its own slave address
 	if((addr & 0x80) || !addr)
 		return 2 << 8;
+
+	sig =  AllocSignal(-1);
+	if( sig == -1 )
+		return 0;
+
+	base->sc.sigmask_intr = 1L << sig;
+	base->sc.MainTask = FindTask(NULL);
+
+	ObtainSemaphore(&base->BaseLock);
+
 	//LibInitI2C();
 	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
 	clockport_write(&base->sc, I2CCON, I2CCON_CR_330KHZ | I2CCON_ENSIO);
 
 	pca9564_read(&base->sc, addr, number, &data);
+
+	ReleaseSemaphore(&base->BaseLock);
+
+	FreeSignal(sig);
 
 	if (base->sc.cur_result == RESULT_OK) {
 		return number; //I2C_OK;
