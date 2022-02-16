@@ -33,8 +33,8 @@ __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
 	LONG sig;
 
 	// Note that a master should not transmit its own slave address
-	if((addr & 0x80) || !addr)
-		return 2 << 8;
+//	if((addr & 0x80) || !addr)
+//		return 2 << 8;
 
 	sig =  AllocSignal(-1);
 	if( sig == -1 )

@@ -15,7 +15,7 @@ clockport_read(pca9564_state_t *sp, UBYTE reg)
 	v = *ptr;
 #ifdef DEBUG
 	if (!(sp->in_isr))
-		KPrintF((STRPTR)"DEBUG: read %x from %p\n", (int) v, (void*) ptr);
+		D((STRPTR)"DEBUG: read %x from %p\n", (int) v, (void*) ptr);
 #endif /* DEBUG */
 
 	return v;
@@ -29,7 +29,7 @@ clockport_write(pca9564_state_t *sp, UBYTE reg, UBYTE value)
 	ptr = (sp->cp) + (reg * CLOCKPORT_STRIDE);
 #ifdef DEBUG
 	if (!(sp->in_isr))
-		KPrintF((STRPTR)"DEBUG: write %x to %p\n", (int) value, (void*) ptr);
+		D((STRPTR)"DEBUG: write %x to %p\n", (int) value, (void*) ptr);
 #endif /* DEBUG */
 
 	*ptr = value;
@@ -39,7 +39,7 @@ void
 pca9564_write(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 {
 	sp->cur_op = OP_WRITE;
-	pca9564_exec(sp, address, size, buf);
+	pca9564_exec(sp, address & 0xFE, size, buf);
 	sp->cur_op = OP_NOP;
 }
 
@@ -47,7 +47,7 @@ void
 pca9564_read(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 {
 	sp->cur_op = OP_READ;
-	pca9564_exec(sp, address, size, buf);
+	pca9564_exec(sp, address | 0x01, size, buf);
 	sp->cur_op = OP_NOP;
 }
 
@@ -65,7 +65,7 @@ pca9564_exec(pca9564_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 
 	if (sp->cur_result != RESULT_OK) {
 #ifdef DEBUG
-		KPrintF((STRPTR)"OP: failed!\n");
+		D((STRPTR)"OP: failed!\n");
 		//pca9564_dump_state(sp);
 #endif /* DEBUG */
 	}
@@ -106,7 +106,7 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 	case OP_READ:
 		switch (clockport_read(sp, I2CSTA)) {
 		case I2CSTA_START_SENT:		/* 0x08 */
-			clockport_write(sp, I2CDAT, (sp->slave_addr << 1) | 1);
+			clockport_write(sp, I2CDAT, sp->slave_addr); // | 0x01);
 			v = clockport_read(sp, I2CCON);
 			v &= ~(I2CCON_SI|I2CCON_STA);
 			clockport_write(sp, I2CCON, v);
@@ -165,7 +165,7 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 	case OP_WRITE:
 		switch (clockport_read(sp, I2CSTA)) {
 		case I2CSTA_START_SENT:		/* 0x08 */
-			clockport_write(sp, I2CDAT, (sp->slave_addr << 1) | 0);
+			clockport_write(sp, I2CDAT, sp->slave_addr); // & 0xFE);
 			v = clockport_read(sp, I2CCON);
 			v &= ~(I2CCON_SI|I2CCON_STA);
 			clockport_write(sp, I2CCON, v);

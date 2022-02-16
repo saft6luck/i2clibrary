@@ -3,6 +3,9 @@
 
 #PREFIX = /opt/gnu-6.5.0b/bin/m68k-amigaos-gcc/
 CC = $(PREFIX)m68k-amigaos-gcc
+VASM = vasmm68k_mot
+INCLUDE = /opt/amigaos/m68k-amigaos/ndk-include/
+VASMFLAGS = -Fhunk
 
 CFLAGS += -s \
  -O2 \
@@ -49,6 +52,7 @@ FUNCOBJS = f_alloci2c.o \
  f_shutdowni2c.o \
  f_bringbacki2c.o \
  akuhei2c.o
+# kprintf.o \
 
 LIBS = -lamiga
 LIBS += -lc -lnix
@@ -65,6 +69,9 @@ clean:
 install: all
 	cp $(OUTPUT) /SYS/Libs
 	-flushlib $(OUTPUT)
+
+kprintf.o: kprintf.asm $(DEPS)
+	$(VASM) $(VASMFLAGS) -o $@ $<
 
 $(FUNCOBJS): %.o: %.c library.h
 	@echo "Compiling $@..."
