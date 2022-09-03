@@ -115,6 +115,7 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 		case I2CSTA_SLAR_TX_ACK_RX:	/* 0x40 */
 			v = clockport_read(sp, I2CCON);
 			v &= ~(I2CCON_SI);
+
 			if ((sp->bytes_count) <= sp->buf_size)
 				v |= (I2CCON_AA);
 			else
@@ -196,7 +197,7 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 
 		case I2CSTA_DATA_TX_ACK_RX:	/* 0x28 */
 			v = clockport_read(sp, I2CCON);
-			(sp->bytes_count)++;
+      (sp->bytes_count)++;
 			if (sp->bytes_count < sp->buf_size) {
 				clockport_write(sp, I2CDAT, sp->buf[sp->bytes_count]);
 			} else {

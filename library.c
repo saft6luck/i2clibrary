@@ -55,19 +55,44 @@ STRPTR LibI2CErrText(struct MyLibBase *base, ULONG errnum);
 void LibShutDownI2C(struct MyLibBase *base);
 BYTE LibBringBackI2C(struct MyLibBase *base);
 
+UBYTE *cps[] = { (UBYTE *)0xD80001, (UBYTE *)0xD84001, (UBYTE *)0xD88001, (UBYTE *)0xD8C001, (UBYTE *)0xD90001 };
+
+BOOL detect_pca(pca9564_state_t *sc)
+{
+	UBYTE a, d;
+
+	if(clockport_read(sc, I2CSTA) != 0xF8)
+	 	return FALSE;
+
+	a = clockport_read(sc, I2CADR),
+	d = clockport_read(sc, I2CDAT),
+
+	clockport_write(sc, I2CDAT, 0xCC);
+	clockport_write(sc, I2CADR, 0x44);
+	if((clockport_read(sc, I2CDAT) == 0xCC) && (clockport_read(sc, I2CADR) == 0x44))
+	{
+		/* restore */
+		clockport_write(sc, I2CADR, a);
+		clockport_write(sc, I2CDAT, d);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 BOOL InitResources(struct MyLibBase *base)
 {
-	UBYTE s;
-	base->sc.cp = CLOCKPORT_BASE;
+	UBYTE k, s;
 	base->sc.cur_op = OP_NOP;
 
-	if((clockport_read(&base->sc, I2CSTA) != 0xF8)) {
-		s = clockport_read(&base->sc, I2CADR);
-		clockport_write(&base->sc, I2CADR, ~s);
-		if(!(clockport_read(&base->sc, I2CADR) ^ s)) {
-			return FALSE;
+	/*base->sc.cp = (UBYTE *)CLOCKPORT_BASE;*/
+	for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k) {
+		base->sc.cp = cps[k];
+		if(detect_pca(&base->sc)) {
+			break;
 		}
 	}
+	if(k == sizeof(cps)/sizeof(UBYTE*))
+		return FALSE;
 
 	base->sc.sig_intr = -1;
 	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {

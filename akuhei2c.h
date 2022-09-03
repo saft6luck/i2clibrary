@@ -2,7 +2,6 @@
 #define AKUHEI2C_H
 
 #include <stdio.h>
-/*#include <stdlib.h>*/
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -13,15 +12,11 @@
 
 #include <hardware/intbits.h>
 
-//#include "SDI_interrupt.h"
-//#include "SDI_compiler.h"
-
 #ifdef DEBUG
 //#include <clib/debug_protos.h>
 #include "debug.h"
 #endif /* DBG */
 
-#define CLOCKPORT_BASE          (UBYTE *)0xD80001
 #define CLOCKPORT_STRIDE        4
 
 #define I2C_PCA_STA		0x00 /* STATUS  Read Only  */
