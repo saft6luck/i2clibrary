@@ -11,7 +11,7 @@ clockport_read(pca9564_state_t *sp, UBYTE reg)
 	UBYTE v;
 	UBYTE *ptr;
 
-	ptr = sp->cp + (reg * CLOCKPORT_STRIDE);
+	ptr = sp->cp + (reg << sp->stride);
 	v = *ptr;
 #ifdef DEBUG
 	if (!(sp->in_isr))
@@ -26,7 +26,7 @@ clockport_write(pca9564_state_t *sp, UBYTE reg, UBYTE value)
 {
 	UBYTE *ptr;
 
-	ptr = (sp->cp) + (reg * CLOCKPORT_STRIDE);
+	ptr = (sp->cp) + (reg << sp->stride);
 #ifdef DEBUG
 	if (!(sp->in_isr))
 		D((STRPTR)"DEBUG: write %x to %p\n", (int) value, (void*) ptr);

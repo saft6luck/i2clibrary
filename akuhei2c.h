@@ -17,7 +17,8 @@
 #include "debug.h"
 #endif /* DBG */
 
-#define CLOCKPORT_STRIDE        4
+#define CLOCKPORT_BASE		0xD80001
+#define CLOCKPORT_STRIDE        2
 
 #define I2C_PCA_STA		0x00 /* STATUS  Read Only  */
 #define I2C_PCA_TO		0x00 /* TIMEOUT Write Only */
@@ -97,6 +98,7 @@ typedef struct {
         UBYTE cur_result;
 
         UBYTE *cp;
+        UBYTE stride;
 
         BYTE sig_intr;
         LONG sigmask_intr;

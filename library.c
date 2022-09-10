@@ -56,24 +56,29 @@ void LibShutDownI2C(struct MyLibBase *base);
 BYTE LibBringBackI2C(struct MyLibBase *base);
 
 UBYTE *cps[] = { (UBYTE *)0xD80001, (UBYTE *)0xD84001, (UBYTE *)0xD88001, (UBYTE *)0xD8C001, (UBYTE *)0xD90001 };
+/* Prisma Megamix Zorro card with clockport */
+/* UBYTE *cps[] = { (UBYTE *)0x00EA4000 }; */
 
 BOOL detect_pca(pca9564_state_t *sc)
 {
-	UBYTE a, d;
-
-	if(clockport_read(sc, I2CSTA) != 0xF8)
+	/* PCA9564 is in usable state on startup only if it is IDLE 0xF8 */
+	if(clockport_read(sc, I2CSTA) != I2CSTA_IDLE)
 	 	return FALSE;
 
-	a = clockport_read(sc, I2CADR),
-	d = clockport_read(sc, I2CDAT),
+	/* upon startup ADDR and DATA regs should be NULL */
+	if(clockport_read(sc, I2CADR) != 0)
+		return FALSE;
+	if(clockport_read(sc, I2CDAT) != 0)
+		return FALSE;
 
 	clockport_write(sc, I2CDAT, 0xCC);
+	/* ADDR MUST be even */
 	clockport_write(sc, I2CADR, 0x44);
 	if((clockport_read(sc, I2CDAT) == 0xCC) && (clockport_read(sc, I2CADR) == 0x44))
 	{
 		/* restore */
-		clockport_write(sc, I2CADR, a);
-		clockport_write(sc, I2CDAT, d);
+		clockport_write(sc, I2CADR, 0x00);
+		clockport_write(sc, I2CDAT, 0x00);
 		return TRUE;
 	}
 	return FALSE;
@@ -85,14 +90,27 @@ BOOL InitResources(struct MyLibBase *base)
 	base->sc.cur_op = OP_NOP;
 
 	/*base->sc.cp = (UBYTE *)CLOCKPORT_BASE;*/
+	base->sc.stride = CLOCKPORT_STRIDE;
 	for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k) {
 		base->sc.cp = cps[k];
 		if(detect_pca(&base->sc)) {
 			break;
 		}
 	}
-	if(k == sizeof(cps)/sizeof(UBYTE*))
-		return FALSE;
+	if(k == sizeof(cps)/sizeof(UBYTE*)) {
+		/* detect clock port on GARY PLCC socket
+		   A0-A12, A1-A13, data lines D8...D15*/
+		base->sc.stride = 12;
+		base->sc.cp = 0xD80001;
+		if(!detect_pca(&base->sc)) {
+			/* Prisma Megamix Zorro card with clockport */
+			base->sc.stride = 2;
+			base->sc.cp = (UBYTE *)0x00EA4000;
+			if(!detect_pca(&base->sc)) {
+				return FALSE;
+			}
+		}
+	}
 
 	base->sc.sig_intr = -1;
 	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
