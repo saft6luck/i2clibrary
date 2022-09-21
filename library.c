@@ -1,7 +1,3 @@
-/*
-   i2c.library, library skeleton
-*/
-
 /****** i2c.library/background **********************************************
 *
 * DESCRIPTION
@@ -12,13 +8,13 @@
 *
 */
 
+#include <dos/dos.h>
+#include <dos/var.h>
 
 #define __NOLIBBASE__
 
 #include <proto/exec.h>
 
-//typedef char* STRPTR;
-//typedef const char* CONST_STRPTR;
 #define STRPTR_TYPEDEF
 
 #include <exec/resident.h>
@@ -29,13 +25,25 @@
 
 #include "lib_version.h"
 #include "library.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <exec/types.h>
+#include <exec/memory.h>
+
 #include "akuhei2c.h"
+
+#include <clib/exec_protos.h>
+#include <clib/expansion_protos.h>
+#include <libraries/configvars.h>
+#include <dos/rdargs.h>
 
 const char LibName[] = LIBNAME;
 extern const char VTag[];
 
 struct Library *SysBase;
-
+struct DosLibrary *DOSBase = NULL;
+struct Library   *ExpansionBase = NULL;
 
 __saveds struct Library *LibInit(APTR seglist __asm("a0"), struct Library *sysbase __asm("a6"));
 __saveds struct Library *LibOpen(struct MyLibBase *base __asm("a6"));
@@ -81,35 +89,161 @@ BOOL detect_pca(pca9564_state_t *sc)
 		clockport_write(sc, I2CDAT, 0x00);
 		return TRUE;
 	}
+	/* restore */
+	clockport_write(sc, I2CADR, 0x00);
+	clockport_write(sc, I2CDAT, 0x00);
 	return FALSE;
+}
+
+UBYTE atoh(char c) {
+	UBYTE r;
+	if ((c <='9') && (c >= '0')) {
+		r = c - '0';
+	} else {
+		r = 10 + c;
+		if ((c <= 'F') && (c >= 'A'))
+			r -= 'A';
+		else
+			r -= 'a';
+	}
+	return r;
 }
 
 BOOL InitResources(struct MyLibBase *base)
 {
-	UBYTE k, s;
+	UBYTE k, s, detected;
+	ULONG ul;
+	UBYTE var_name[] = "i2c/cpaddr";
+	UBYTE var_value[] = "                ";
+	struct ConfigDev *myCD;
+	UBYTE *buf;
+
 	base->sc.cur_op = OP_NOP;
 
 	/*base->sc.cp = (UBYTE *)CLOCKPORT_BASE;*/
 	base->sc.stride = CLOCKPORT_STRIDE;
-	for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k) {
-		base->sc.cp = cps[k];
-		if(detect_pca(&base->sc)) {
-			break;
+
+	k = 0;
+	detected = 0;
+	struct DosLibrary *oldDOSBase = DOSBase;
+	struct Library   *oldExpansionBase = ExpansionBase;
+	if(DOSBase == NULL)
+		DOSBase = (struct DosLibrary *)OpenLibrary("dos.library",0L);
+
+	if((DOSBase != NULL) && ((k = GetVar(var_name, var_value, 16, 0)) > 8) && (k < 16))
+	{
+		/* address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31 */
+		buf = var_value;
+		ul = 0UL;
+		for(s = 0; s < 8; ++s, ++buf)
+		{
+			ul <<= 4;
+			ul += atoh(*buf);
 		}
-	}
-	if(k == sizeof(cps)/sizeof(UBYTE*)) {
-		/* detect clock port on GARY PLCC socket
-		   A0-A12, A1-A13, data lines D8...D15*/
-		base->sc.stride = 12;
-		base->sc.cp = 0xD80001;
-		if(!detect_pca(&base->sc)) {
-			/* Prisma Megamix Zorro card with clockport */
-			base->sc.stride = 2;
-			base->sc.cp = (UBYTE *)0x00EA4000;
-			if(!detect_pca(&base->sc)) {
-				return FALSE;
+		base->sc.cp = (UBYTE*)ul;
+		base->sc.stride = atoh(*buf);
+		if(k > 9)
+		{
+			++buf;
+			base->sc.stride <<= 4;
+			base->sc.stride += atoh(*buf);
+		}
+		if(detect_pca(&base->sc))
+		{
+			detected = 1;
+		}
+	} else {
+		for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k) {
+			base->sc.cp = cps[k];
+			if(detect_pca(&base->sc))
+			{
+				detected = 1;
+				break;
 			}
 		}
+		if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*))) {
+			/* detect clock port on GARY PLCC socket
+			   A0-A12, A1-A13, data lines D8...D15*/
+			base->sc.stride = 12;
+			base->sc.cp = (UBYTE*)0xD80002;
+			if(detect_pca(&base->sc)) {
+				detected = 1;
+			} else {
+				if(ExpansionBase == NULL)
+					ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
+				if(ExpansionBase != NULL) {
+					k = 0;
+					myCD = NULL;
+					while((myCD = FindConfigDev(myCD,-1L,-1L)) && !detected) /* search for all ConfigDevs */
+	      	{
+						/* Prisma Megamix Zorro card with clockport */
+						if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
+						&& (myCD->cd_Rom.er_Product == 0x30))
+						{
+							base->sc.stride = 2;
+							base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
+							if(detect_pca(&base->sc))
+							{
+								detected = 1;
+								break;
+							} else {
+								/* Icomp card with clockport */
+								if(myCD->cd_Rom.er_Manufacturer == 0x1212) {
+									if((myCD->cd_Rom.er_Product == 0x05) 	/* 0x1212:0x05 ISDN Surfer */
+									|| (myCD->cd_Rom.er_Product == 0x07)  /* 0x1212:0x07 VarIO */
+									|| (myCD->cd_Rom.er_Product == 0x0A)) /* 0x1212:0x0A KickFlash */
+									{
+										base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
+										if(myCD->cd_Rom.er_Product == 0x0A) {
+											/* activate CP for KickFlasher
+											http://wiki.icomp.de/wiki/Kickflash#using_the_clockport */
+											buf = base->sc.cp + 0x007C;
+											*buf = 0xFF;
+										}
+										if(detect_pca(&base->sc))
+										{
+											detected = 1;
+										}
+									} else {
+										if(!detected && (myCD->cd_Rom.er_Product == 0x17)) 	/* 0x1212:0x17 X-Surfer */
+										{
+											base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
+											if(detect_pca(&base->sc)) /* Port 0 */
+											{
+												detected = 1;
+											} else {
+												base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
+												if(detect_pca(&base->sc)) /* Port 1 */
+												{
+													detected = 1;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				/* Prisma Megamix Zorro card with clockport */
+				/*base->sc.stride = 2;
+				base->sc.cp = (UBYTE *)0x00EA4000;
+				if(!detect_pca(&base->sc)) {
+					return FALSE;
+				}*/
+			}
+		}
+	}
+
+	/* do not close libs only they were already opened before */
+	if((ExpansionBase != NULL) && (oldExpansionBase == NULL))
+		CloseLibrary(ExpansionBase);
+	if((DOSBase != NULL) && (oldDOSBase == NULL))
+		CloseLibrary((struct Library *)DOSBase);
+
+	if(!detected)
+	{
+		return FALSE;
 	}
 
 	base->sc.sig_intr = -1;
