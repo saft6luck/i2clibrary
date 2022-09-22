@@ -195,7 +195,7 @@ BOOL InitResources(struct MyLibBase *base)
 									{
 										base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
 										if(myCD->cd_Rom.er_Product == 0x0A) {
-											/* activate CP for KickFlasher
+											/* activate CP for KickFlash
 											http://wiki.icomp.de/wiki/Kickflash#using_the_clockport */
 											buf = base->sc.cp + 0x007C;
 											*buf = 0xFF;

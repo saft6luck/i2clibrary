@@ -28,5 +28,6 @@
 
 __saveds void LibShutDownI2C(struct MyLibBase *base __asm("a6"))
 {
+	if(FALSE && (base == NULL)) {};
 	return;
 }

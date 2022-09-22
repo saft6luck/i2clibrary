@@ -36,6 +36,7 @@
 __saveds STRPTR LibI2CErrText(struct MyLibBase *base __asm("a6"),
 	ULONG errnum __asm("d0"))
 {
+	if(FALSE && (base == NULL)) {};
 
 	switch((errnum >> 8) & 0xff) {
 		case 1: //I2C_REJECT:
@@ -79,5 +80,5 @@ __saveds STRPTR LibI2CErrText(struct MyLibBase *base __asm("a6"),
 	sprintf((char *)stringpointer, "ErrorCode 0x%08lu", errnum);
 
 	return stringpointer;
-	return "Error unknown.";
+	return (STRPTR)"Error unknown.";
 }

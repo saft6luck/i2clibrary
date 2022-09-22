@@ -27,6 +27,8 @@
 __saveds BYTE LibAllocI2C(struct MyLibBase *base __asm("a6"), UBYTE delaytype __asm("d0"), STRPTR name __asm("a0"))
 {
 	UBYTE dummy;
+	if(FALSE && (base == NULL)) {};
+	if(FALSE && (name == NULL)) {};
 	dummy = base->sc.cur_op;
 	dummy = delaytype;
 	return dummy;

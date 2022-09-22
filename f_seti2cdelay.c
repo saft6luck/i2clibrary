@@ -29,5 +29,6 @@
 
 __saveds ULONG LibSetI2CDelay(struct MyLibBase *base __asm("a6"), ULONG ticks __asm("d0"))
 {
+	if(FALSE && (base == NULL)) {};
 	return ticks;
 }
