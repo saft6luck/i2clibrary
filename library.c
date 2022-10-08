@@ -64,8 +64,6 @@ void LibShutDownI2C(struct MyLibBase *base);
 BYTE LibBringBackI2C(struct MyLibBase *base);
 
 UBYTE *cps[] = { (UBYTE *)0xD80001, (UBYTE *)0xD84001, (UBYTE *)0xD88001, (UBYTE *)0xD8C001, (UBYTE *)0xD90001 };
-/* Prisma Megamix Zorro card with clockport */
-/* UBYTE *cps[] = { (UBYTE *)0x00EA4000 }; */
 
 BOOL detect_pca(pca9564_state_t *sc)
 {
@@ -115,6 +113,7 @@ BOOL InitResources(struct MyLibBase *base)
 	ULONG ul;
 	UBYTE var_name[] = "i2c/cpaddr";
 	UBYTE var_value[] = "                ";
+	UBYTE ENV_name[] = "ENV:";
 	struct ConfigDev *myCD;
 	UBYTE *buf;
 
@@ -130,7 +129,7 @@ BOOL InitResources(struct MyLibBase *base)
 	if(DOSBase == NULL)
 		DOSBase = (struct DosLibrary *)OpenLibrary("dos.library",0L);
 
-	if((DOSBase != NULL) && ((k = GetVar(var_name, var_value, 16, 0)) > 8) && (k < 16))
+	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_name, var_value, 16, 0)) > 8) && (k < 16))
 	{
 		/* address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31 */
 		buf = var_value;
