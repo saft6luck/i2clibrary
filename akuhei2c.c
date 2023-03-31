@@ -99,7 +99,7 @@ __saveds int pca9564_isr(pca9564_state_t *sp __asm("a1"))
 #ifdef DEBUG
 		sp->in_isr = FALSE;
 #endif /* DEBUG */
-		return 0;
+		return 1;
 	}
 
   switch (sp->cur_op) {
