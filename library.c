@@ -217,6 +217,15 @@ BOOL InitResources(struct MyLibBase *base)
 													detected = 1;
 												}
 											}
+										} else {
+											if((myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
+											{
+												base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
+												if(detect_pca(&base->sc))
+												{
+													detected = 1;
+												}
+											}
 										}
 									}
 								}

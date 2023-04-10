@@ -77,7 +77,7 @@ __saveds STRPTR LibI2CErrText(struct MyLibBase *base __asm("a6"),
 
 //	strcpy(stringpointer, "Error code 0x");
 
-	sprintf((char *)stringpointer, "ErrorCode 0x%08lu", errnum);
+	sprintf((char *)stringpointer, "ErrorCode 0x%08u", errnum);
 
 	return stringpointer;
 	return (STRPTR)"Error unknown.";
