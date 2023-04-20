@@ -119,7 +119,6 @@ BOOL InitResources(struct MyLibBase *base)
 
 	base->sc.cur_op = OP_NOP;
 
-	/*base->sc.cp = (UBYTE *)CLOCKPORT_BASE;*/
 	base->sc.stride = CLOCKPORT_STRIDE;
 
 	k = 0;
@@ -131,7 +130,7 @@ BOOL InitResources(struct MyLibBase *base)
 
 	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_name, var_value, 16, 0)) > 8) && (k < 16))
 	{
-		/* address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31 */
+		// address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31
 		buf = var_value;
 		ul = 0UL;
 		for(s = 0; s < 8; ++s, ++buf)
@@ -148,98 +147,96 @@ BOOL InitResources(struct MyLibBase *base)
 			base->sc.stride += atoh(*buf);
 		}
 		if(detect_pca(&base->sc))
+		{ detected = 1; }
+	}
+	else
+	{ // autodetect at the clockports or zorro boards
+		for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k)
 		{
-			detected = 1;
-		}
-	} else {
-		for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k) {
 			base->sc.cp = cps[k];
 			if(detect_pca(&base->sc))
-			{
-				detected = 1;
-				break;
-			}
+			{ detected = 1; break; }
 		}
-		if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*))) {
-			/* detect clock port on GARY PLCC socket
-			   A0-A12, A1-A13, data lines D8...D15*/
+		if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*)))
+		{
+			// detect clock port on GARY PLCC socket
+			// A0-A12, A1-A13, data lines D8...D15
 			base->sc.stride = 12;
 			base->sc.cp = (UBYTE*)0xD80002;
-			if(detect_pca(&base->sc)) {
-				detected = 1;
-			} else {
-				if(ExpansionBase == NULL)
-					ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
-				if(ExpansionBase != NULL) {
-					k = 0;
-					myCD = NULL;
-					while((myCD = FindConfigDev(myCD,-1L,-1L)) && !detected) /* search for all ConfigDevs */
-	      	{
-						/* Prisma Megamix Zorro card with clockport */
-						if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
-						&& (myCD->cd_Rom.er_Product == 0x30))
-						{
-							base->sc.stride = 2;
-							base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
-							if(detect_pca(&base->sc))
-							{
-								detected = 1;
-								break;
-							} else {
-								/* Icomp card with clockport */
-								if(myCD->cd_Rom.er_Manufacturer == 0x1212) {
-									if((myCD->cd_Rom.er_Product == 0x05) 	/* 0x1212:0x05 ISDN Surfer */
-									|| (myCD->cd_Rom.er_Product == 0x07)  /* 0x1212:0x07 VarIO */
-									|| (myCD->cd_Rom.er_Product == 0x0A)) /* 0x1212:0x0A KickFlash */
-									{
-										base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
-										if(myCD->cd_Rom.er_Product == 0x0A) {
-											/* activate CP for KickFlash
-											http://wiki.icomp.de/wiki/Kickflash#using_the_clockport */
-											buf = base->sc.cp + 0x007C;
-											*buf = 0xFF;
-										}
-										if(detect_pca(&base->sc))
-										{
-											detected = 1;
-										}
-									} else {
-										if(!detected && (myCD->cd_Rom.er_Product == 0x17)) 	/* 0x1212:0x17 X-Surfer */
-										{
-											base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
-											if(detect_pca(&base->sc)) /* Port 0 */
-											{
-												detected = 1;
-											} else {
-												base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
-												if(detect_pca(&base->sc)) /* Port 1 */
-												{
-													detected = 1;
-												}
-											}
-										} else {
-											if((myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
-											{
-												base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
-												if(detect_pca(&base->sc))
-												{
-													detected = 1;
-												}
-											}
-										}
-									}
-								}
-							}
+			if(detect_pca(&base->sc)) { detected = 1; }
+		}
+		if(!detected && (ExpansionBase == NULL))
+		{
+			//ExpansionBase = OpenLibrary("expansion.library",0L);
+			ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
+		}
+		if(!detected && (ExpansionBase != NULL))
+		{
+			k = 0;
+			myCD = NULL;
+			base->sc.stride = 2;
+			while(!detected && (myCD = FindConfigDev(myCD,-1L,-1L))) // search for all ConfigDevs
+    	{
+				// Prisma Megamix Zorro card with clockport
+				if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
+				&& (myCD->cd_Rom.er_Product == 0x30))
+				{
+					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
+					if(detect_pca(&base->sc))
+					{ detected = 1; break; }
+				}
+				// Icomp card with clockport
+				if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x1212))
+				{
+					if((myCD->cd_Rom.er_Product == 0x05) 	// 0x1212:0x05 ISDN Surfer
+					|| (myCD->cd_Rom.er_Product == 0x07)  // 0x1212:0x07 VarIO
+					|| (myCD->cd_Rom.er_Product == 0x0A)) // 0x1212:0x0A KickFlash
+					{
+						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
+						if(myCD->cd_Rom.er_Product == 0x0A) {
+							// activate CP for KickFlash
+							// http://wiki.icomp.de/wiki/Kickflash#using_the_clockport
+							buf = base->sc.cp + 0x007C;
+							*buf = 0xFF;
 						}
+						if(detect_pca(&base->sc))
+						{ detected = 1; break; }
+					}
+					// Buddha I-Comp
+					if(!detected && (myCD->cd_Rom.er_Product == 0x00))
+					{
+						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00000e00UL);
+						if(detect_pca(&base->sc))
+						{ detected = 1; break; }
 					}
 				}
-				/* Prisma Megamix Zorro card with clockport */
-				/*base->sc.stride = 2;
-				base->sc.cp = (UBYTE *)0x00EA4000;
+				if(!detected && (myCD->cd_Rom.er_Product == 0x17)) 	// 0x1212:0x17 X-Surfer
+				{
+					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
+					if(detect_pca(&base->sc)) // Port 0
+					{
+						detected = 1; break;
+					} else {
+						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
+						if(detect_pca(&base->sc)) // Port 1
+						{ detected = 1; break; }
+					}
+				}
+				// A1K.org Community
+				// A LAN/IDE solluntion with Clockport for the Amiga ZorroII/III Slot
+				// Matthias Heinrichs
+				if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
+				{
+					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
+					if(detect_pca(&base->sc))
+					{ detected = 1; break; }
+				}
+				// Prisma Megamix Zorro card with clockport
+				/*base->sc.cp = (UBYTE *)0x00EA4000;
 				if(!detect_pca(&base->sc)) {
 					return FALSE;
 				}*/
-			}
+			} // FindConfigDev()
 		}
 	}
 

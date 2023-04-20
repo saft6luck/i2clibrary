@@ -17,3 +17,4 @@ Clock ports found on various Zorro cards are also recognized (under development)
 * Icomp VarIO​
 * Icomp Kickflash​
 * Icomp ISDN Surfer​
+* Icomp Buddha
