@@ -1,4 +1,10 @@
-# i2clibrary
+Short:        i2c.library for AkuheI2C
+Uploader:     S Bieganski chello nl (Szymon Bieganski)
+Author:       Szymon Bieganski (SQ7BTI)
+Type:         driver/other
+Version:      1.0
+Architecture: m68k-amigaos >= 2.0.4
+Distribution: Aminet
 
 i2c.library implements API v40 of Brian Ipsen and Wilhelm Noeker (https://aminet.net/package/docs/hard/i2clib40)
 
@@ -18,4 +24,4 @@ Clock ports found on various Zorro cards are also recognized (under development)
 * Icomp Kickflash​
 * Icomp ISDN Surfer​
 * Icomp Buddha
-* Matthias Heinrichs's LAN/IDE combo card with Clockport
+* Matthias Heinrichs's LAN/IDE combo card

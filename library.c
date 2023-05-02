@@ -210,7 +210,8 @@ BOOL InitResources(struct MyLibBase *base)
 						{ detected = 1; break; }
 					}
 				}
-				if(!detected && (myCD->cd_Rom.er_Product == 0x17)) 	// 0x1212:0x17 X-Surfer
+			 	// 0x1212:0x17 X-Surfer
+				if(!detected && (myCD->cd_Rom.er_Product == 0x17))
 				{
 					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
 					if(detect_pca(&base->sc)) // Port 0
