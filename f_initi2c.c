@@ -29,5 +29,5 @@
 __saveds void LibInitI2C(struct MyLibBase *base __asm("a6"))
 {
 	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
-	clockport_write(&base->sc, I2CCON, I2CCON_CR_330KHZ | I2CCON_ENSIO);
+	clockport_write(&base->sc, I2CCON, base->sc.cr | I2CCON_ENSIO);
 }

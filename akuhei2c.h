@@ -99,6 +99,7 @@ typedef struct {
 
         UBYTE *cp;
         UBYTE stride;
+        UBYTE cr;
 
         BYTE sig_intr;
         LONG sigmask_intr;

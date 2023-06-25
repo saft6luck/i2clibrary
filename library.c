@@ -111,14 +111,15 @@ BOOL InitResources(struct MyLibBase *base)
 {
 	UBYTE k, s, detected;
 	ULONG ul;
-	UBYTE var_name[] = "i2c/cpaddr";
+	UBYTE var_cp_name[] = "i2c/cpaddr";
+	UBYTE var_cr_name[] = "i2c/cr";
 	UBYTE var_value[] = "                ";
 	UBYTE ENV_name[] = "ENV:";
 	struct ConfigDev *myCD;
 	UBYTE *buf;
 
+	base->sc.cr = I2CCON_CR_330KHZ;
 	base->sc.cur_op = OP_NOP;
-
 	base->sc.stride = CLOCKPORT_STRIDE;
 
 	k = 0;
@@ -128,7 +129,7 @@ BOOL InitResources(struct MyLibBase *base)
 	if(DOSBase == NULL)
 		DOSBase = (struct DosLibrary *)OpenLibrary("dos.library",0L);
 
-	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_name, var_value, 16, 0)) > 8) && (k < 16))
+	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cp_name, var_value, 16, 0)) > 8) && (k < 16))
 	{
 		// address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31
 		buf = var_value;
@@ -239,6 +240,10 @@ BOOL InitResources(struct MyLibBase *base)
 				}*/
 			} // FindConfigDev()
 		}
+	}
+	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cr_name, var_value, 2, 0)) > 0))
+	{
+		base->sc.cr = atoh(*var_value) & I2CCON_CR_MASK;
 	}
 
 	/* do not close libs only they were already opened before */
