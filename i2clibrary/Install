@@ -2,9 +2,16 @@
 ; $VER: i2clibrary-Install 1.0 (23.04.23)
  (copylib
    (prompt "i2c.library will be copied to LIBS: drawer.")
-   (help )
+   (help "i2c.library for AkuheI2C will be copied to system library folder")
    (source "i2c.library")
    (confirm)
    (dest "LIBS:")
  )
-( exit "Installation completed!" (quiet))
+ (copyfiles
+  (prompt "Usefull tools will be copied to C: drawer.")
+  (help "pcadetect helps identify location of AkuheI2C module connected to one of the recognized clock-port\n")
+  (source "tools/#?")
+  (confirm)
+  (dest "C:")
+ )
+(exit "Installation completed!" (quiet))
