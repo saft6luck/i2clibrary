@@ -19,3 +19,5 @@ Clock ports found on various Zorro cards are also recognized (under development)
 * Icomp ISDN Surfer​
 * Icomp Buddha
 * Matthias Heinrichs's LAN/IDE combo card with Clockport
+
+Main source code based on akuhei-test @rkujawa
