@@ -8,7 +8,7 @@
 
 #include <exec/libraries.h>
 #include <exec/semaphores.h>
-#include "akuhei2c.h"
+#include "PCA9665.h"
 
 struct MyLibBase
 {
@@ -17,8 +17,8 @@ struct MyLibBase
 	struct SignalSemaphore  BaseLock;
 	BOOL                    InitFlag;
 
-	pca9564_state_t         sc;
-  struct Interrupt        *int6;
+	pca_state_t             sc;
+  struct Interrupt         *int6;
 };
 
 #endif      /* I2C_LIBRARY_H */

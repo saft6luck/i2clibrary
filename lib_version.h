@@ -8,11 +8,11 @@
 
 #define LIBNAME "i2c.library"
 #define VERSION 40
-#define REVISION 0
+#define REVISION 1
 #define DATE __DATE__
 #define VERS LIBNAME " " VERSION "." REVISION
 
-#define VSTRING LIBNAME " 40.0 (" DATE " / " __TIME__ ") for Akuhei (Sakura) by SQ7BTI (gcc" __VERSION__ ") for clockport base detected on startup."
+#define VSTRING LIBNAME " 40.0 (" DATE " / " __TIME__ ") for PCA9665 based on Akuhei (Sakura) by SQ7BTI (gcc" __VERSION__ ") for clockport base detected on startup."
 #define VERSTAG "\0$VER: " VSTRING
 
 #endif      /* I2C_LIB_VERSION_H */

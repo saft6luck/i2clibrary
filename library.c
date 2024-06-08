@@ -31,7 +31,7 @@
 #include <exec/types.h>
 #include <exec/memory.h>
 
-#include "akuhei2c.h"
+#include "PCA9665.h"
 
 #include <clib/exec_protos.h>
 #include <clib/expansion_protos.h>
@@ -65,32 +65,67 @@ BYTE LibBringBackI2C(struct MyLibBase *base);
 
 UBYTE *cps[] = { (UBYTE *)0xD80001, (UBYTE *)0xD84001, (UBYTE *)0xD88001, (UBYTE *)0xD8C001, (UBYTE *)0xD90001 };
 
-BOOL detect_pca(pca9564_state_t *sc)
+BOOL detect_pca(pca_state_t *sc)
 {
-	/* PCA9564 is in usable state on startup only if it is IDLE 0xF8 */
-	if(clockport_read(sc, I2CSTA) != I2CSTA_IDLE)
-	 	return FALSE;
+	BOOL result = FALSE;
+	
+	/* A PCA9564 or PCA9665 is in usable state on startup only if it is IDLE 0xF8 */
+	if(clockport_read(sc, PCA9665_STA) == PCA9665_STA_IDLE)
+    {
+		/* For PCA 9564 and PCA 9665 DATA register should be 0x00 */
+		if(clockport_read(sc, PCA9665_DAT) == 0x00)
+		{
+			/* write to DATA register to see if writing is possible */
+			clockport_write(sc, PCA9665_DAT, 0xCC);
+			
+			if(clockport_read(sc, PCA9665_DAT) == 0xCC)
+			{
+				/* DATA register is fine */
+				/* try ADR now */
+				
+				/* Init PCA9665_INDPTR (TO for PCA9564) to ensure a read or write to PCA9665_INDIRECT will go to PCA9665_ADR */
+				clockport_write(sc, PCA9665_INDPTR, PCA9665_ADR);
+				
+				/* First check for PCA9665 */
+				if(clockport_read(sc, PCA9665_INDIRECT) == PCA9665_ADR_DEFAULT)
+				{
+					/* assume we found a PCA9665 */
+					sc->pca_type = PCA_9665;
+					result = TRUE;
 
-	/* upon startup ADDR and DATA regs should be NULL */
-	if(clockport_read(sc, I2CADR) != 0)
-		return FALSE;
-	if(clockport_read(sc, I2CDAT) != 0)
-		return FALSE;
+					/* restore PCA9665_INDPTR  register */
+					clockport_write(sc, PCA9665_INDPTR, 0x00);
 
-	clockport_write(sc, I2CDAT, 0xCC);
-	/* ADDR MUST be even */
-	clockport_write(sc, I2CADR, 0x44);
-	if((clockport_read(sc, I2CDAT) == 0xCC) && (clockport_read(sc, I2CADR) == 0x44))
-	{
-		/* restore */
-		clockport_write(sc, I2CADR, 0x00);
-		clockport_write(sc, I2CDAT, 0x00);
-		return TRUE;
+				} else {
+
+					/* restore PCA9564 TO register */
+					clockport_write(sc, PCA9665_INDPTR, 0xFF);
+
+					/* continue check for PCA9564 */
+					/* ADR MUST be even */
+					clockport_write(sc, PCA9665_INDIRECT, 0x44);
+				
+					if(clockport_read(sc, PCA9665_INDIRECT) == 0x44)
+					{
+				        /* assume we found a PCA9665 */
+						sc->pca_type = PCA_9564;
+						result = TRUE;
+					} else {
+						/* no PCA found */
+						sc->pca_type = PCA_UNKNOWN;
+					}
+
+					/* restore ADR */
+					clockport_write(sc, PCA9665_INDIRECT, 0x00);
+				}
+			}
+			/* restore DATA register */
+			clockport_write(sc, PCA9665_DAT, 0x00);
+		} 
 	}
-	/* restore */
-	clockport_write(sc, I2CADR, 0x00);
-	clockport_write(sc, I2CDAT, 0x00);
-	return FALSE;
+	
+	return result;
+
 }
 
 UBYTE atoh(char c) {
