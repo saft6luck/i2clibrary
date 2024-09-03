@@ -46,8 +46,8 @@ __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
 	ObtainSemaphore(&base->BaseLock);
 
 	//LibInitI2C();
-	//ctrl = I2CCON_CR_330KHZ | I2CCON_ENSIO;
-	clockport_write(&base->sc, I2CCON, base->sc.cr | I2CCON_ENSIO);
+	//ctrl = PCA9564_I2CCON_CR_330KHZ | PCA9564_I2CCON_ENSIO;
+	clockport_write(&base->sc, PCA9564_I2CCON, base->sc.PCA_ClockRate_low | PCA9564_I2CCON_ENSIO);
 
 	pca9564_write(&(base->sc), addr, number, &data);
 

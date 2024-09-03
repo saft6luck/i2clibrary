@@ -1,58 +1,25 @@
 #include "PCA9665.h"
 
-void __restore_a4(void)
-{
-    __asm volatile("\tlea ___a4_init, a4");
-}
 
-UBYTE
-clockport_read(pca_state_t *sp, UBYTE reg)
-{
-	UBYTE v;
-	UBYTE *ptr;
-
-	ptr = sp->cp + (reg << sp->stride);
-	v = *ptr;
-#ifdef DEBUG
-	if (!(sp->in_isr))
-		D((STRPTR)"DEBUG: read %x from %p\n", (int) v, (void*) ptr);
-#endif /* DEBUG */
-
-	return v;
-}
 
 void
-clockport_write(pca_state_t *sp, UBYTE reg, UBYTE value)
+pca9665_write(I2C_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 {
-	UBYTE *ptr;
-
-	ptr = (sp->cp) + (reg << sp->stride);
-#ifdef DEBUG
-	if (!(sp->in_isr))
-		D((STRPTR)"DEBUG: write %x to %p\n", (int) value, (void*) ptr);
-#endif /* DEBUG */
-
-	*ptr = value;
-}
-
-void
-pca9665_write(pca_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
-{
-	sp->cur_op = OP_WRITE;
+	sp->I2C_CurrentOperationMode = OP_WRITE;
 	pca9665_exec(sp, address & 0xFE, size, buf);
-	sp->cur_op = OP_NOP;
+	sp->I2C_CurrentOperationMode = OP_NOP;
 }
 
 void
-pca9665_read(pca_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
+pca9665_read(I2C_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 {
-	sp->cur_op = OP_READ;
+	sp->I2C_CurrentOperationMode = OP_READ;
 	pca9665_exec(sp, address | 0x01, size, buf);
-	sp->cur_op = OP_NOP;
+	sp->I2C_CurrentOperationMode = OP_NOP;
 }
 
 void
-pca9665_exec(pca_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
+pca9665_exec(I2C_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 {
 	sp->slave_addr = address;
 	sp->buf_size = size;
@@ -75,7 +42,7 @@ pca9665_exec(pca_state_t *sp, UBYTE address, ULONG size, UBYTE **buf)
 }
 
 void
-pca9665_send_start(pca_state_t *sp)
+pca9665_send_start(I2C_state_t *sp)
 {
 	UBYTE c;
 
@@ -86,7 +53,7 @@ pca9665_send_start(pca_state_t *sp)
 }
 
 /* Interrupt service routine. */
-__saveds int pca9665_isr(pca_state_t *sp __asm("a1"))
+__saveds int pca9665_isr(I2C_state_t *sp __asm("a1"))
 {
 	UBYTE v;
 
@@ -102,7 +69,7 @@ __saveds int pca9665_isr(pca_state_t *sp __asm("a1"))
 		return 1;
 	}
 
-  switch (sp->cur_op) {
+  switch (sp->I2C_CurrentOperationMode) {
 	case OP_READ:
 		switch (clockport_read(sp, PCA9665_STA)) {
 		case PCA9665_STA_START_SENT:		/* 0x08 */

@@ -51,6 +51,8 @@ FUNCOBJS = f_alloci2c.o \
  f_i2cerrtext.o \
  f_shutdowni2c.o \
  f_bringbacki2c.o \
+ library_common.o \
+ PCA9564.o \
  PCA9665.o
 # kprintf.o \
 

@@ -41,9 +41,9 @@
 const char LibName[] = LIBNAME;
 extern const char VTag[];
 
-struct Library *SysBase;
+struct Library    *SysBase;
 struct DosLibrary *DOSBase = NULL;
-struct Library   *ExpansionBase = NULL;
+struct Library    *ExpansionBase = NULL;
 
 __saveds struct Library *LibInit(APTR seglist __asm("a0"), struct Library *sysbase __asm("a6"));
 __saveds struct Library *LibOpen(struct MyLibBase *base __asm("a6"));
@@ -63,9 +63,9 @@ STRPTR LibI2CErrText(struct MyLibBase *base, ULONG errnum);
 void LibShutDownI2C(struct MyLibBase *base);
 BYTE LibBringBackI2C(struct MyLibBase *base);
 
-UBYTE *cps[] = { (UBYTE *)0xD80001, (UBYTE *)0xD84001, (UBYTE *)0xD88001, (UBYTE *)0xD8C001, (UBYTE *)0xD90001 };
+UBYTE *cps[] = { (UBYTE *)0xD9C001};
 
-BOOL detect_pca(pca_state_t *sc)
+BOOL detect_pca(I2C_state_t *sc)
 {
 	BOOL result = FALSE;
 	
@@ -107,7 +107,7 @@ BOOL detect_pca(pca_state_t *sc)
 				
 					if(clockport_read(sc, PCA9665_INDIRECT) == 0x44)
 					{
-				        /* assume we found a PCA9665 */
+				        /* assume we found a PCA9564 */
 						sc->pca_type = PCA_9564;
 						result = TRUE;
 					} else {
@@ -144,8 +144,8 @@ UBYTE atoh(char c) {
 
 BOOL InitResources(struct MyLibBase *base)
 {
-	UBYTE k, s, detected;
-	ULONG ul;
+	UBYTE k = 0, s, detected = 0;
+	ULONG var_input;
 	UBYTE var_cp_name[] = "i2c/cpaddr";
 	UBYTE var_cr_name[] = "i2c/cr";
 	UBYTE var_value[] = "                ";
@@ -153,168 +153,201 @@ BOOL InitResources(struct MyLibBase *base)
 	struct ConfigDev *myCD;
 	UBYTE *buf;
 
-	base->sc.cr = I2CCON_CR_330KHZ;
-	base->sc.cur_op = OP_NOP;
-	base->sc.stride = CLOCKPORT_STRIDE;
+	/* default values for the I2C controller */
+	/* depending on the selected (default) HW variant */
+	if (IS_PCA9665(base->sc.pca_type)) {
+		/* PCA9665 */
+		base->sc.PCA_ClockRate_low  = PCA9665_SCLL_CR_100KHZ_LOW;
+		base->sc.PCA_ClockRate_high = PCA9665_SCLH_CR_100KHZ_HIGH;
+		base->sc.PCA_Mode           = PCA9665_MODE_CR_100KHZ_MODE;
+	} else {
+		/* all other cases: PCA9564 */
+		base->sc.PCA_ClockRate_low = PCA9564_I2CCON_CR_330KHZ;
+		base->sc.PCA_ClockRate_high = 0x00;
+		base->sc.PCA_Mode = 0x00;
+	}
 
-	k = 0;
-	detected = 0;
+	base->sc.CP_Address =   (UBYTE*)CLOCKPORT_BASE;
+	base->sc.CP_StepSize = CLOCKPORT_STEPSIZE;
+	base->sc.I2C_CurrentOperationMode = OP_NOP;
+
 	struct DosLibrary *oldDOSBase = DOSBase;
 	struct Library   *oldExpansionBase = ExpansionBase;
+	/* DOS Library not yet open? */
 	if(DOSBase == NULL)
+		/* open Dos Library */
 		DOSBase = (struct DosLibrary *)OpenLibrary("dos.library",0L);
 
-	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cp_name, var_value, 16, 0)) > 8) && (k < 16))
-	{
-		// address stride can be as much as 30 -> making the A0 and A1 at address lines A30 and A31
-		buf = var_value;
-		ul = 0UL;
-		for(s = 0; s < 8; ++s, ++buf)
+	if(DOSBase != NULL) {
+		
+		// use env variable if available and content length is >9 & <12: format 01234567 90
+		if (Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cp_name, var_value, 12, 0)) > 9) && (k < 12))
 		{
-			ul <<= 4;
-			ul += atoh(*buf);
+			// address CP_StepSize can be as much as 30 (leading to 2^30 as granularity) 2-> making the A0 and A1 at address lines A30 and A31
+						 
+			buf = var_value;
+			var_input = 0UL;
+			// read ENV variable for CP address
+			for(s = 0; s < 8; ++s, ++buf)
+			{
+				var_input <<= 4;
+				var_input += atoh(*buf);
+			}
+			base->sc.CP_Address = (UBYTE*)var_input;
+			
+			// read ENV variable for CP step size
+			buf++; // skip delimiter
+			base->sc.CP_StepSize = atoh(*buf);
+			if(k > 10)
+			{
+				buf++;
+				base->sc.CP_StepSize <<= 4;
+				base->sc.CP_StepSize += atoh(*buf);
+			}
+			
+			if(detect_pca(&base->sc)) {
+				 detected = 1;
+		    }
 		}
-		base->sc.cp = (UBYTE*)ul;
-		base->sc.stride = atoh(*buf);
-		if(k > 9)
-		{
-			++buf;
-			base->sc.stride <<= 4;
-			base->sc.stride += atoh(*buf);
-		}
-		if(detect_pca(&base->sc))
-		{ detected = 1; }
-	}
-	else
-	{ // autodetect at the clockports or zorro boards
-		for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k)
-		{
-			base->sc.cp = cps[k];
-			if(detect_pca(&base->sc))
-			{ detected = 1; break; }
-		}
-		if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*)))
-		{
-			// detect clock port on GARY PLCC socket
-			// A0-A12, A1-A13, data lines D8...D15
-			base->sc.stride = 12;
-			base->sc.cp = (UBYTE*)0xD80002;
-			if(detect_pca(&base->sc)) { detected = 1; }
-		}
-		if(!detected && (ExpansionBase == NULL))
-		{
-			//ExpansionBase = OpenLibrary("expansion.library",0L);
-			ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
-		}
-		if(!detected && (ExpansionBase != NULL))
-		{
-			k = 0;
-			myCD = NULL;
-			base->sc.stride = 2;
-			while(!detected && (myCD = FindConfigDev(myCD,-1L,-1L))) // search for all ConfigDevs
-    	{
-				// Prisma Megamix Zorro card with clockport
-				if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
-				&& (myCD->cd_Rom.er_Product == 0x30))
-				{
-					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
-					if(detect_pca(&base->sc))
-					{ detected = 1; break; }
-				}
-				// Icomp card with clockport
-				if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x1212))
-				{
-					if((myCD->cd_Rom.er_Product == 0x05) 	// 0x1212:0x05 ISDN Surfer
-					|| (myCD->cd_Rom.er_Product == 0x07)  // 0x1212:0x07 VarIO
-					|| (myCD->cd_Rom.er_Product == 0x0A)) // 0x1212:0x0A KickFlash
+		else
+		{ // autodetect at the clockports or zorro boards
+			for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k)
+			{
+				base->sc.CP_Address = cps[k];
+				if(detect_pca(&base->sc))
+				{ detected = 1; break; }
+			}
+			if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*)))
+			{
+				// detect clock port on GARY PLCC socket
+				// A0-A12, A1-A13, data lines D8...D15
+				base->sc.CP_StepSize = 12;
+				base->sc.CP_Address = (UBYTE*)0xD80002;
+				if(detect_pca(&base->sc)) { detected = 1; }
+			}
+			if(!detected && (ExpansionBase == NULL))
+			{
+				//ExpansionBase = OpenLibrary("expansion.library",0L);
+				ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
+			}
+			if(!detected && (ExpansionBase != NULL))
+			{
+				k = 0;
+				myCD = NULL;
+				base->sc.CP_StepSize = 2;
+				while(!detected && (myCD = FindConfigDev(myCD,-1L,-1L))) // search for all ConfigDevs
+			{
+					// Prisma Megamix Zorro card with clockport
+					if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
+					&& (myCD->cd_Rom.er_Product == 0x30))
 					{
-						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
-						if(myCD->cd_Rom.er_Product == 0x0A) {
-							// activate CP for KickFlash
-							// http://wiki.icomp.de/wiki/Kickflash#using_the_clockport
-							buf = base->sc.cp + 0x007C;
-							*buf = 0xFF;
+						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
+						if(detect_pca(&base->sc))
+						{ detected = 1; break; }
+					}
+					// Icomp card with clockport
+					if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x1212))
+					{
+						if((myCD->cd_Rom.er_Product == 0x05) 	// 0x1212:0x05 ISDN Surfer
+						|| (myCD->cd_Rom.er_Product == 0x07)  // 0x1212:0x07 VarIO
+						|| (myCD->cd_Rom.er_Product == 0x0A)) // 0x1212:0x0A KickFlash
+						{
+							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
+							if(myCD->cd_Rom.er_Product == 0x0A) {
+								// activate CP for KickFlash
+								// http://wiki.icomp.de/wiki/Kickflash#using_the_clockport
+								buf = base->sc.CP_Address + 0x007C;
+								*buf = 0xFF;
+							}
+							if(detect_pca(&base->sc))
+							{ detected = 1; break; }
 						}
+						// Buddha I-Comp
+						if(!detected && (myCD->cd_Rom.er_Product == 0x00))
+						{
+							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00000e00UL);
+							if(detect_pca(&base->sc))
+							{ detected = 1; break; }
+						}
+					}
+					// 0x1212:0x17 X-Surfer
+					if(!detected && (myCD->cd_Rom.er_Product == 0x17))
+					{
+						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
+						if(detect_pca(&base->sc)) // Port 0
+						{
+							detected = 1; break;
+						} else {
+							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
+							if(detect_pca(&base->sc)) // Port 1
+							{ detected = 1; break; }
+						}
+					}
+					// A1K.org Community
+					// A LAN/IDE solluntion with Clockport for the Amiga ZorroII/III Slot
+					// Matthias Heinrichs
+					if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
+					{
+						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
 						if(detect_pca(&base->sc))
 						{ detected = 1; break; }
 					}
-					// Buddha I-Comp
-					if(!detected && (myCD->cd_Rom.er_Product == 0x00))
-					{
-						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00000e00UL);
-						if(detect_pca(&base->sc))
-						{ detected = 1; break; }
-					}
-				}
-			 	// 0x1212:0x17 X-Surfer
-				if(!detected && (myCD->cd_Rom.er_Product == 0x17))
-				{
-					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
-					if(detect_pca(&base->sc)) // Port 0
-					{
-						detected = 1; break;
-					} else {
-						base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
-						if(detect_pca(&base->sc)) // Port 1
-						{ detected = 1; break; }
-					}
-				}
-				// A1K.org Community
-				// A LAN/IDE solluntion with Clockport for the Amiga ZorroII/III Slot
-				// Matthias Heinrichs
-				if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
-				{
-					base->sc.cp = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
-					if(detect_pca(&base->sc))
-					{ detected = 1; break; }
-				}
-				// Prisma Megamix Zorro card with clockport
-				/*base->sc.cp = (UBYTE *)0x00EA4000;
-				if(!detect_pca(&base->sc)) {
-					return FALSE;
-				}*/
-			} // FindConfigDev()
+					// Prisma Megamix Zorro card with clockport
+					/*base->sc.CP_Address = (UBYTE *)0x00EA4000;
+					if(!detect_pca(&base->sc)) {
+						return FALSE;
+					}*/
+				} // FindConfigDev()
+			}
 		}
-	}
-	if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cr_name, var_value, 2, 0)) > 0))
-	{
-		base->sc.cr = atoh(*var_value) & I2CCON_CR_MASK;
-	}
 
-	/* do not close libs only they were already opened before */
-	if((ExpansionBase != NULL) && (oldExpansionBase == NULL))
-		CloseLibrary(ExpansionBase);
-	if((DOSBase != NULL) && (oldDOSBase == NULL))
-		CloseLibrary((struct Library *)DOSBase);
+		if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cr_name, var_value, 2, 0)) > 0))
+			{
+				base->sc.PCA_ClockRate_low = atoh(*var_value) & PCA9564_I2CCON_CR_MASK;
+			}
 
-	if(!detected)
-	{
-		return FALSE;
-	}
+		/* do not close libs only they were already opened before */
+		if((ExpansionBase != NULL) && (oldExpansionBase == NULL))
+			CloseLibrary(ExpansionBase);
+		if((DOSBase != NULL) && (oldDOSBase == NULL))
+			CloseLibrary((struct Library *)DOSBase);
 
-	base->sc.sig_intr = -1;
-	if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
-		return FALSE;
-	}
-	base->sc.sigmask_intr = 1L << base->sc.sig_intr;
-
-	base->sc.MainTask = FindTask(NULL);
-
-	base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR);
-	if(base->int6) {
-					base->int6->is_Node.ln_Type = NT_INTERRUPT;
-					base->int6->is_Node.ln_Pri = -60;
-					base->int6->is_Node.ln_Name = "PCA9564";
-					base->int6->is_Data = (APTR)&(base->sc);
-					base->int6->is_Code = (void*)pca9564_isr;
-
-					AddIntServer(INTB_EXTER, base->int6);
 	} else {
-					FreeSignal(base->sc.sig_intr);
-					return FALSE; // I2C_NO_MISC_RESOURCE;
+		/* can't open DOS library */	
 	}
+	
 
-	return TRUE;
+	if(detected)
+	{
+
+		base->sc.sig_intr = -1;
+		if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
+			return FALSE;
+		}
+
+		base->sc.sigmask_intr = 1L << base->sc.sig_intr;
+
+		base->sc.MainTask = FindTask(NULL);
+
+		base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR);
+		if(base->int6) {
+						base->int6->is_Node.ln_Type = NT_INTERRUPT;
+						base->int6->is_Node.ln_Pri = -60;
+						base->int6->is_Node.ln_Name = "PCA9564";
+						base->int6->is_Data = (APTR)&(base->sc);
+						base->int6->is_Code = (void*)pca9564_isr;
+
+						AddIntServer(INTB_EXTER, base->int6);
+		} else {
+						FreeSignal(base->sc.sig_intr);
+						return FALSE; // I2C_NO_MISC_RESOURCE;
+		}
+
+		return TRUE;
+	} else {
+		return FALSE;
+
+	}
 }
 
 

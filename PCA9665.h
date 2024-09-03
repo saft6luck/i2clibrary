@@ -11,43 +11,50 @@
 
 #include <hardware/intbits.h>
 
+#include "library_common.h"
+
 #ifdef DEBUG
 //#include <clib/debug_protos.h>
 #include "debug.h"
 #endif /* DBG */
 
-#define CLOCKPORT_BASE		0xD80001
-#define CLOCKPORT_STRIDE        2
 
-// direct access
+// PCA9665
+// direct access registers - 4 registers, 1 is different for read or write (see comment)
 #define PCA9665_STA		0x00 /* I2CSTA – status register                        – read only  */
-#define PCA9665_INDPTR		0x00 /* INDPTR – indirect address pointer               – write only */
+#define PCA9665_INDPTR  	0x00 /* INDPTR – indirect address pointer               – write only */
 #define PCA9665_DAT		0x01 /* I2CDAT – data register  (up to 68 bytes buffer) – read/write */
 #define PCA9665_INDIRECT	0x02 /* INDIRECT – indirect register access             – read/write */
 #define PCA9665_CON		0x03 /* I2CCON – control register                       – read/write */
 
-// indirect access
+// INDPTR
+// PCA9665 indirect access registers - 7 registers
 #define PCA9665_COUNT		0x00 /* I2CCOUNT – byte count – read/write  */
 #define PCA9665_ADR		0x01 /* I2CADR – own address – read/write */
 #define PCA9665_SCLL		0x02 /* I2CSCLL – SCL LOW period – read/write */
 #define PCA9665_SCLH		0x03 /* I2CSCLH – SCL HIGH period – read/write */
 #define PCA9665_TO		0x04 /* I2CTO – TIMEOUT register – read/write */
-#define PCA9665_PRESET		0x05 /* I2CPRESET – software reset register – write only */
+#define PCA9665_PRESET  	0x05 /* I2CPRESET – software reset register – write only */
 #define PCA9665_MODE		0x06 /* I2CMODE – I2C-bus mode register – read/write */
 
-// 
-#define PCA9665_CON_SI               (1 << 3)
-#define PCA9665_CON_STO              (1 << 4)
-#define PCA9665_CON_STA              (1 << 5)
-#define PCA9665_CON_ENSIO            (1 << 6)
-#define PCA9665_CON_AA               (1 << 7)
+#define PCA9665_INDPTR_MASK     0x07 /* Mask to access INDPTR register -> only bit 0 - 2 are allowed */
 
-#define PCA9665_CON_AA		0x80 /* Assert Acknowledge */
-#define PCA9665_CON_ENSIO	0x40 /* Enable */
-#define PCA9665_CON_STA		0x20 /* Start */
-#define PCA9665_CON_STO		0x10 /* Stop */
-#define PCA9665_CON_SI		0x08 /* Serial Interrupt */
-#define PCA9665_CON_MODE	0x01 /* Mode (MASK) */
+// I2CCON
+// bit definition
+#define PCA9665_CON_AA               (1 << 7) /* Assert Acknowledge */
+#define PCA9665_CON_ENSIO            (1 << 6) /* Enable */
+#define PCA9665_CON_STA              (1 << 5) /* Start */
+#define PCA9665_CON_STO              (1 << 4) /* Stop */
+#define PCA9665_CON_SI               (1 << 3) /* Serial Interrupt */
+
+#define IS_ACTIVE( a, bit )        ((a & bit##_MASK) != 0)
+
+#define PCA9665_CON_AA_MASK	0x80 /* Assert Acknowledge */
+#define PCA9665_CON_ENSIO_MASK	0x40 /* Enable */
+#define PCA9665_CON_STA_MASK	0x20 /* Start */
+#define PCA9665_CON_STO_MASK	0x10 /* Stop */
+#define PCA9665_CON_SI_MASK	0x08 /* Serial Interrupt */
+#define PCA9665_CON_MODE_MASK	0x01 /* Mode (MASK) */
 
 #define PCA9665_CON_MODE_BYTE	0x00 /* BYTE Mode */
 #define PCA9665_CON_MODE_BUFFER	0x01 /* BUFFER Mode (up to 68 bytes) */
@@ -66,6 +73,7 @@
 #define PCA9665_STA_DATA_RX_ACK_TX   0x50
 #define PCA9665_STA_DATA_RX_NACK_TX  0x58
 
+/* I2C controller status values */
 #define PCA9665_STA_IDLE             0xF8
 #define PCA9665_STA_SDA_STUCK        0x70
 #define PCA9665_STA_SCL_STUCK        0x90
@@ -73,75 +81,42 @@
 #define PCA9665_STA_ILLEGAL_COND     0x00
 
 
-#define PCA9665_CON_CR_330KHZ        (0x0)
-#define PCA9665_CON_CR_288KHZ        (0x1)
-#define PCA9665_CON_CR_217KHZ        (0x2)
-#define PCA9665_CON_CR_146KHZ        (0x3)
-#define PCA9665_CON_CR_88KHZ         (0x4)
-#define PCA9665_CON_CR_59KHZ         (0x5)
-#define PCA9665_CON_CR_MASK          (0x7)
+/* I2CSCLL / I2CSCLH / I2CMODE values */
+/* 
+ Minimum speed values per mode => maximun possible speed per mode 
+ I2CSCLL  I2CSCLH  I2C-bus frequency (kHz)   AC[1:0] Mode
+  (hex)    (hex)   PCA9665[2] PCA9665A[3]
+   9D       86       98.0        103.3       00 Standard
+   2C       14      371.1        371.4       01 Fast
+   11       09      836.8        788.6       10 Fast-mode Plus
+   0E       05      1015         932.8       11 Turbo mode
+*/
+
+#define PCA9665_SCLL_CR_370KHZ        (0x2C)
+#define PCA9665_SCLH_CR_370KHZ        (0x14)
+#define PCA9665_MODE_CR_370KHZ        (0x01)    /* Fast Mode*/
+
+#define PCA9665_SCLL_CR_100KHZ_LOW    (0x4)
+#define PCA9665_SCLH_CR_100KHZ_HIGH   (0x4)
+#define PCA9665_MODE_CR_100KHZ_MODE   (0x4)     /* Standard */
+
+#define PCA9665_MODE_MASK             (0x3)
 
 #define PCA9665_ADR_DEFAULT          0xE0
 
 
 
-typedef enum {
-        OP_NOP,
-        OP_READ,
-        OP_WRITE
-} op_t;
-
-typedef enum {
-        RESULT_OK=0,        /* Last send/receive was OK */
-        RESULT_REJECT=1,       /* Data not acknowledged (i.e. unwanted) */
-        RESULT_NO_REPLY=2,      /* Chip address apparently invalid */
-        RESULT_SDA_TRASHED=3,
-        RESULT_SDA_LO=4,   /* SDA always LO \_wrong interface attached, */
-        RESULT_SDA_HI=5,
-        RESULT_SCL_TIMEOUT=6,
-        RESULT_SCL_HI=7,
-        RESULT_HARDW_BUSY=8
-} result_t;
-
-typedef enum {
-        PCA_UNKNOWN,
-        PCA_9564,
-        PCA_9665
-} PCA_TYPE_t;
 
 
-/* glorious god object that holds the state of everything in this program; tldr */
-typedef struct {
-        UBYTE cur_op;
-        UBYTE cur_result;
+#define IS_PCA9665(a)             (a == PCA_9665)
 
-        UBYTE *cp;
-        UBYTE stride;
-        UBYTE cr;
 
-        BYTE sig_intr;
-        LONG sigmask_intr;
-        struct Task *MainTask;
 
-        UBYTE *buf;
-        ULONG buf_size;
-        ULONG bytes_count;
+__saveds int pca9665_isr(I2C_state_t * __asm("a1"));
 
-        UBYTE slave_addr;
-        PCA_TYPE_t pca_type;
-/*#ifdef DEBUG*/
-        int isr_called; /* how may times ISR was called */
-        BOOL in_isr;
-/*#endif  DEBUG */
-} pca_state_t;
-
-UBYTE clockport_read(pca_state_t *, UBYTE);
-void clockport_write(pca_state_t *, UBYTE, UBYTE);
-__saveds int pca9665_isr(pca_state_t * __asm("a1"));
-/*void pca9665_dump_state(pca_state_t *);*/
-void pca9665_send_start(pca_state_t *);
-void pca9665_read(pca_state_t *, UBYTE, ULONG, UBYTE **);
-void pca9665_write(pca_state_t *, UBYTE, ULONG, UBYTE **);
-void pca9665_exec(pca_state_t *, UBYTE, ULONG, UBYTE **);
+void pca9665_send_start(I2C_state_t *);
+void pca9665_read(I2C_state_t *, UBYTE, ULONG, UBYTE **);
+void pca9665_write(I2C_state_t *, UBYTE, ULONG, UBYTE **);
+void pca9665_exec(I2C_state_t *, UBYTE, ULONG, UBYTE **);
 
 /* PCA9665_H */
