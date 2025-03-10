@@ -38,7 +38,7 @@ STRIP = m68k-amigaos-strip \
 
 #DBG = -DDEBUG -ldebug
 
-OUTPUT = i2c.library
+OUTPUT = A4000Dplus_i2c.library
 OBJS = dummy.o library.o
 
 FUNCOBJS = f_alloci2c.o \

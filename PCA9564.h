@@ -1,5 +1,4 @@
-#ifndef PCA9564_H
-#define PCA9564_H
+#pragma once
 
 #include <stdio.h>
 
@@ -75,9 +74,9 @@
 
 
 __saveds int pca9564_isr(I2C_state_t * __asm("a1"));
+
+void pca9564_init(I2C_state_t *);
 void pca9564_send_start(I2C_state_t *);
-void pca9564_read(I2C_state_t *, UBYTE, ULONG, UBYTE **);
-void pca9564_write(I2C_state_t *, UBYTE, ULONG, UBYTE **);
 void pca9564_exec(I2C_state_t *, UBYTE, ULONG, UBYTE **);
 
-#endif      /* PCA9564_H */
+

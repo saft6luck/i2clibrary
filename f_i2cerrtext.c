@@ -33,10 +33,10 @@
 #include <proto/utility.h>
 //#include <proto/dos.h>
 
-__saveds STRPTR LibI2CErrText(struct MyLibBase *base __asm("a6"),
+__saveds STRPTR LibI2CErrText(struct MyLibBase *LibBase __asm("a6"),
 	ULONG errnum __asm("d0"))
 {
-	if(FALSE && (base == NULL)) {};
+	if(FALSE && (LibBase == NULL)) {};
 
 	switch((errnum >> 8) & 0xff) {
 		case 1: //I2C_REJECT:

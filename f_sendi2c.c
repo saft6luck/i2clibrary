@@ -26,8 +26,7 @@
 
 #include <libraries/i2c.h>
 
-
-__saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
+__saveds ULONG LibSendI2C(struct MyLibBase *LibBase __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
 	LONG sig;
@@ -40,22 +39,22 @@ __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
 	if( sig == -1 )
 		return 0;
 
-	base->sc.sigmask_intr = 1L << sig;
-	base->sc.MainTask = FindTask(NULL);
+	LibBase->LibGlobal.sigmask_intr = 1L << sig;
+	LibBase->LibGlobal.MainTask = FindTask(NULL);
 
-	ObtainSemaphore(&base->BaseLock);
+	ObtainSemaphore(&LibBase->BaseLock);
+    
+	// TODO: fix I2C gets reset every time again
+    // init HW to ensure I2C is working
+	HW_init(&LibBase->LibGlobal);
+	
+	I2C_write(&(LibBase->LibGlobal), addr, number, &data);
 
-	//LibInitI2C();
-	//ctrl = PCA9564_I2CCON_CR_330KHZ | PCA9564_I2CCON_ENSIO;
-	clockport_write(&base->sc, PCA9564_I2CCON, base->sc.PCA_ClockRate_low | PCA9564_I2CCON_ENSIO);
-
-	pca9564_write(&(base->sc), addr, number, &data);
-
-	ReleaseSemaphore(&base->BaseLock);
+	ReleaseSemaphore(&LibBase->BaseLock);
 
 	FreeSignal(sig);
 
-	if (base->sc.cur_result == RESULT_OK) {
+	if (LibBase->LibGlobal.cur_result == RESULT_OK) {
 		return addr; //I2C_OK;
 	} else {
 		//		error - may be considered as three UBYTE's: 0x00AABBCC, with
@@ -71,7 +70,7 @@ __saveds ULONG LibSendI2C(struct MyLibBase *base __asm("a6"),
     //SCL_HI,              / read the clock line, but currently none can.
     //I2C_HARDW_BUSY       Hardware allocation failed
 
-		return ((base->sc.cur_result & 0xff) << 8);
+		return ((LibBase->LibGlobal.cur_result & 0xff) << 8);
 
 		//return (1 << 8); //(I2C_REJECT << 8);
 	}

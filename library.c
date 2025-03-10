@@ -46,81 +46,85 @@ struct DosLibrary *DOSBase = NULL;
 struct Library    *ExpansionBase = NULL;
 
 __saveds struct Library *LibInit(APTR seglist __asm("a0"), struct Library *sysbase __asm("a6"));
-__saveds struct Library *LibOpen(struct MyLibBase *base __asm("a6"));
-__saveds ULONG LibClose(struct MyLibBase *base __asm("a6"));
-__saveds APTR LibExpunge(struct MyLibBase *base __asm("a6"));
+__saveds struct Library *LibOpen(struct MyLibBase *LibBase __asm("a6"));
+__saveds ULONG LibClose(struct MyLibBase *LibBase __asm("a6"));
+__saveds APTR LibExpunge(struct MyLibBase *LibBase __asm("a6"));
 __saveds ULONG LibReserved(void);
 
 
-BYTE LibAllocI2C(struct MyLibBase *base, UBYTE delaytype, STRPTR name);
-void LibFreeI2C(struct MyLibBase *base);
-ULONG LibSetI2CDelay(struct MyLibBase *base, ULONG ticks);
-void LibInitI2C(struct MyLibBase *base);
-ULONG LibSendI2C(struct MyLibBase *base, UBYTE addr, UWORD number, UBYTE* data);
-ULONG LibReceiveI2C(struct MyLibBase *base, UBYTE addr, UWORD number, UBYTE* data);
-STRPTR LibGetI2COpponent(struct MyLibBase *base);
-STRPTR LibI2CErrText(struct MyLibBase *base, ULONG errnum);
-void LibShutDownI2C(struct MyLibBase *base);
-BYTE LibBringBackI2C(struct MyLibBase *base);
+BYTE LibAllocI2C(struct MyLibBase *LibBase, UBYTE delaytype, STRPTR name);
+void LibFreeI2C(struct MyLibBase *LibBase);
+ULONG LibSetI2CDelay(struct MyLibBase *LibBase, ULONG ticks);
+void LibInitI2C(struct MyLibBase *LibBase);
+ULONG LibSendI2C(struct MyLibBase *LibBase, UBYTE addr, UWORD number, UBYTE* data);
+ULONG LibReceiveI2C(struct MyLibBase *LibBase, UBYTE addr, UWORD number, UBYTE* data);
+STRPTR LibGetI2COpponent(struct MyLibBase *LibBase);
+STRPTR LibI2CErrText(struct MyLibBase *LibBase, ULONG errnum);
+void LibShutDownI2C(struct MyLibBase *LibBase);
+BYTE LibBringBackI2C(struct MyLibBase *LibBase);
 
-UBYTE *cps[] = { (UBYTE *)0xD9C001};
+/* Start location for I2C address in A4000D+ */
+UBYTE *cps[] = { (UBYTE *)CLOCKPORT_BASE}; 
 
-BOOL detect_pca(I2C_state_t *sc)
+/* This function can detect and distinguish PCA9564 and PCA9664. */
+/* result: TRUE when a PCA was found, else FALSE                 */
+/* global: LibGlobal->pca_type = PCA_9665 or PCA_9564 */
+BOOL detect_pca(I2C_state_t *LibGlobal)
 {
 	BOOL result = FALSE;
 	
 	/* A PCA9564 or PCA9665 is in usable state on startup only if it is IDLE 0xF8 */
-	if(clockport_read(sc, PCA9665_STA) == PCA9665_STA_IDLE)
+	if(clockport_read(LibGlobal, PCA9665_STA) == PCA9665_STA_IDLE)
     {
 		/* For PCA 9564 and PCA 9665 DATA register should be 0x00 */
-		if(clockport_read(sc, PCA9665_DAT) == 0x00)
+		if(clockport_read(LibGlobal, PCA9665_DAT) == 0x00)
 		{
 			/* write to DATA register to see if writing is possible */
-			clockport_write(sc, PCA9665_DAT, 0xCC);
+			clockport_write(LibGlobal, PCA9665_DAT, 0xCC);
 			
-			if(clockport_read(sc, PCA9665_DAT) == 0xCC)
+			if(clockport_read(LibGlobal, PCA9665_DAT) == 0xCC)
 			{
 				/* DATA register is fine */
 				/* try ADR now */
 				
 				/* Init PCA9665_INDPTR (TO for PCA9564) to ensure a read or write to PCA9665_INDIRECT will go to PCA9665_ADR */
-				clockport_write(sc, PCA9665_INDPTR, PCA9665_ADR);
+				clockport_write(LibGlobal, PCA9665_INDPTR, PCA9665_ADR);
 				
 				/* First check for PCA9665 */
-				if(clockport_read(sc, PCA9665_INDIRECT) == PCA9665_ADR_DEFAULT)
+				if(clockport_read(LibGlobal, PCA9665_INDIRECT) == PCA9665_ADR_DEFAULT)
 				{
 					/* assume we found a PCA9665 */
-					sc->pca_type = PCA_9665;
+					LibGlobal->pca_type = PCA_9665;
 					result = TRUE;
 
 					/* restore PCA9665_INDPTR  register */
-					clockport_write(sc, PCA9665_INDPTR, 0x00);
+					clockport_write(LibGlobal, PCA9665_INDPTR, 0x00);
 
 				} else {
 
 					/* restore PCA9564 TO register */
-					clockport_write(sc, PCA9665_INDPTR, 0xFF);
+					clockport_write(LibGlobal, PCA9665_INDPTR, 0xFF);
 
 					/* continue check for PCA9564 */
 					/* ADR MUST be even */
-					clockport_write(sc, PCA9665_INDIRECT, 0x44);
+					clockport_write(LibGlobal, PCA9665_INDIRECT, 0x44);
 				
-					if(clockport_read(sc, PCA9665_INDIRECT) == 0x44)
+					if(clockport_read(LibGlobal, PCA9665_INDIRECT) == 0x44)
 					{
 				        /* assume we found a PCA9564 */
-						sc->pca_type = PCA_9564;
+						LibGlobal->pca_type = PCA_9564;
 						result = TRUE;
 					} else {
 						/* no PCA found */
-						sc->pca_type = PCA_UNKNOWN;
+						LibGlobal->pca_type = PCA_UNKNOWN;
 					}
 
 					/* restore ADR */
-					clockport_write(sc, PCA9665_INDIRECT, 0x00);
+					clockport_write(LibGlobal, PCA9665_INDIRECT, 0x00);
 				}
 			}
 			/* restore DATA register */
-			clockport_write(sc, PCA9665_DAT, 0x00);
+			clockport_write(LibGlobal, PCA9665_DAT, 0x00);
 		} 
 	}
 	
@@ -142,220 +146,97 @@ UBYTE atoh(char c) {
 	return r;
 }
 
-BOOL InitResources(struct MyLibBase *base)
+BOOL InitResources(struct MyLibBase *LibBase)
 {
-	UBYTE k = 0, s, detected = 0;
-	ULONG var_input;
-	UBYTE var_cp_name[] = "i2c/cpaddr";
-	UBYTE var_cr_name[] = "i2c/cr";
-	UBYTE var_value[] = "                ";
-	UBYTE ENV_name[] = "ENV:";
-	struct ConfigDev *myCD;
-	UBYTE *buf;
+	BOOL detected = FALSE;
+	UBYTE k = 0;
 
 	/* default values for the I2C controller */
 	/* depending on the selected (default) HW variant */
-	if (IS_PCA9665(base->sc.pca_type)) {
+	if (IS_PCA9665(LibBase->LibGlobal.pca_type)) {
 		/* PCA9665 */
-		base->sc.PCA_ClockRate_low  = PCA9665_SCLL_CR_100KHZ_LOW;
-		base->sc.PCA_ClockRate_high = PCA9665_SCLH_CR_100KHZ_HIGH;
-		base->sc.PCA_Mode           = PCA9665_MODE_CR_100KHZ_MODE;
+		LibBase->LibGlobal.PCA_ClockRate_low  = PCA9665_SCLL_CR_100KHZ_LOW;
+		LibBase->LibGlobal.PCA_ClockRate_high = PCA9665_SCLH_CR_100KHZ_HIGH;
+		LibBase->LibGlobal.PCA_Mode           = PCA9665_MODE_CR_100KHZ_MODE;
 	} else {
 		/* all other cases: PCA9564 */
-		base->sc.PCA_ClockRate_low = PCA9564_I2CCON_CR_330KHZ;
-		base->sc.PCA_ClockRate_high = 0x00;
-		base->sc.PCA_Mode = 0x00;
+		LibBase->LibGlobal.PCA_ClockRate_low = PCA9564_I2CCON_CR_330KHZ;
+		LibBase->LibGlobal.PCA_ClockRate_high = 0x00;
+		LibBase->LibGlobal.PCA_Mode = 0x00;
 	}
 
-	base->sc.CP_Address =   (UBYTE*)CLOCKPORT_BASE;
-	base->sc.CP_StepSize = CLOCKPORT_STEPSIZE;
-	base->sc.I2C_CurrentOperationMode = OP_NOP;
+	LibBase->LibGlobal.CP_Address =   (UBYTE*)CLOCKPORT_BASE;
+	LibBase->LibGlobal.CP_StepSize = CLOCKPORT_STEPSIZE;
+	LibBase->LibGlobal.I2C_CurrentOperationMode = OP_NOP;
 
-	struct DosLibrary *oldDOSBase = DOSBase;
-	struct Library   *oldExpansionBase = ExpansionBase;
-	/* DOS Library not yet open? */
-	if(DOSBase == NULL)
-		/* open Dos Library */
-		DOSBase = (struct DosLibrary *)OpenLibrary("dos.library",0L);
-
-	if(DOSBase != NULL) {
-		
-		// use env variable if available and content length is >9 & <12: format 01234567 90
-		if (Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cp_name, var_value, 12, 0)) > 9) && (k < 12))
-		{
-			// address CP_StepSize can be as much as 30 (leading to 2^30 as granularity) 2-> making the A0 and A1 at address lines A30 and A31
-						 
-			buf = var_value;
-			var_input = 0UL;
-			// read ENV variable for CP address
-			for(s = 0; s < 8; ++s, ++buf)
-			{
-				var_input <<= 4;
-				var_input += atoh(*buf);
-			}
-			base->sc.CP_Address = (UBYTE*)var_input;
-			
-			// read ENV variable for CP step size
-			buf++; // skip delimiter
-			base->sc.CP_StepSize = atoh(*buf);
-			if(k > 10)
-			{
-				buf++;
-				base->sc.CP_StepSize <<= 4;
-				base->sc.CP_StepSize += atoh(*buf);
-			}
-			
-			if(detect_pca(&base->sc)) {
-				 detected = 1;
-		    }
-		}
-		else
-		{ // autodetect at the clockports or zorro boards
-			for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k)
-			{
-				base->sc.CP_Address = cps[k];
-				if(detect_pca(&base->sc))
-				{ detected = 1; break; }
-			}
-			if((!detected) && (k == sizeof(cps)/sizeof(UBYTE*)))
-			{
-				// detect clock port on GARY PLCC socket
-				// A0-A12, A1-A13, data lines D8...D15
-				base->sc.CP_StepSize = 12;
-				base->sc.CP_Address = (UBYTE*)0xD80002;
-				if(detect_pca(&base->sc)) { detected = 1; }
-			}
-			if(!detected && (ExpansionBase == NULL))
-			{
-				//ExpansionBase = OpenLibrary("expansion.library",0L);
-				ExpansionBase = (struct Library*)OpenLibrary("expansion.library",0L);
-			}
-			if(!detected && (ExpansionBase != NULL))
-			{
-				k = 0;
-				myCD = NULL;
-				base->sc.CP_StepSize = 2;
-				while(!detected && (myCD = FindConfigDev(myCD,-1L,-1L))) // search for all ConfigDevs
-			{
-					// Prisma Megamix Zorro card with clockport
-					if((myCD->cd_Rom.er_Manufacturer == 0x0E3B)
-					&& (myCD->cd_Rom.er_Product == 0x30))
-					{
-						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00004000UL);
-						if(detect_pca(&base->sc))
-						{ detected = 1; break; }
-					}
-					// Icomp card with clockport
-					if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x1212))
-					{
-						if((myCD->cd_Rom.er_Product == 0x05) 	// 0x1212:0x05 ISDN Surfer
-						|| (myCD->cd_Rom.er_Product == 0x07)  // 0x1212:0x07 VarIO
-						|| (myCD->cd_Rom.er_Product == 0x0A)) // 0x1212:0x0A KickFlash
-						{
-							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00008000UL);
-							if(myCD->cd_Rom.er_Product == 0x0A) {
-								// activate CP for KickFlash
-								// http://wiki.icomp.de/wiki/Kickflash#using_the_clockport
-								buf = base->sc.CP_Address + 0x007C;
-								*buf = 0xFF;
-							}
-							if(detect_pca(&base->sc))
-							{ detected = 1; break; }
-						}
-						// Buddha I-Comp
-						if(!detected && (myCD->cd_Rom.er_Product == 0x00))
-						{
-							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x00000e00UL);
-							if(detect_pca(&base->sc))
-							{ detected = 1; break; }
-						}
-					}
-					// 0x1212:0x17 X-Surfer
-					if(!detected && (myCD->cd_Rom.er_Product == 0x17))
-					{
-						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000C000UL);
-						if(detect_pca(&base->sc)) // Port 0
-						{
-							detected = 1; break;
-						} else {
-							base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr + 0x0000A001UL);
-							if(detect_pca(&base->sc)) // Port 1
-							{ detected = 1; break; }
-						}
-					}
-					// A1K.org Community
-					// A LAN/IDE solluntion with Clockport for the Amiga ZorroII/III Slot
-					// Matthias Heinrichs
-					if(!detected && (myCD->cd_Rom.er_Manufacturer == 0x0A1C) && (myCD->cd_Rom.er_Product == 0x7C))
-					{
-						base->sc.CP_Address = (UBYTE *)((UBYTE *)myCD->cd_BoardAddr);
-						if(detect_pca(&base->sc))
-						{ detected = 1; break; }
-					}
-					// Prisma Megamix Zorro card with clockport
-					/*base->sc.CP_Address = (UBYTE *)0x00EA4000;
-					if(!detect_pca(&base->sc)) {
-						return FALSE;
-					}*/
-				} // FindConfigDev()
-			}
-		}
-
-		if((DOSBase != NULL) && Lock(ENV_name, SHARED_LOCK) && ((k = GetVar(var_cr_name, var_value, 2, 0)) > 0))
-			{
-				base->sc.PCA_ClockRate_low = atoh(*var_value) & PCA9564_I2CCON_CR_MASK;
-			}
-
-		/* do not close libs only they were already opened before */
-		if((ExpansionBase != NULL) && (oldExpansionBase == NULL))
-			CloseLibrary(ExpansionBase);
-		if((DOSBase != NULL) && (oldDOSBase == NULL))
-			CloseLibrary((struct Library *)DOSBase);
-
-	} else {
-		/* can't open DOS library */	
+	// autodetect at the clockport
+	for(k = 0; k < sizeof(cps)/sizeof(UBYTE*); ++k)
+	{
+		LibBase->LibGlobal.CP_Address = cps[k];
+		if(detect_pca(&LibBase->LibGlobal))
+		{ detected = TRUE; break; }
 	}
 	
+	if((detected != TRUE) && (k == sizeof(cps)/sizeof(UBYTE*)))
+	{
+		// detect clock port on GARY PLCC socket
+		// A0->A12, A1->A13, data lines D24...D31
+		LibBase->LibGlobal.CP_StepSize = 12;
+		LibBase->LibGlobal.CP_Address = (UBYTE*)0xD80000;
+		if(detect_pca(&LibBase->LibGlobal)) { detected = TRUE; }
+	}
 
-	if(detected)
+	if(detected == TRUE)
 	{
 
-		base->sc.sig_intr = -1;
-		if ((base->sc.sig_intr = AllocSignal(-1)) == -1) {
+		LibBase->LibGlobal.sig_intr = -1;
+		if ((LibBase->LibGlobal.sig_intr = AllocSignal(-1)) == -1) {
 			return FALSE;
 		}
 
-		base->sc.sigmask_intr = 1L << base->sc.sig_intr;
+		LibBase->LibGlobal.sigmask_intr = 1L << LibBase->LibGlobal.sig_intr;
 
-		base->sc.MainTask = FindTask(NULL);
+		LibBase->LibGlobal.MainTask = FindTask(NULL);
 
-		base->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR);
-		if(base->int6) {
-						base->int6->is_Node.ln_Type = NT_INTERRUPT;
-						base->int6->is_Node.ln_Pri = -60;
-						base->int6->is_Node.ln_Name = "PCA9564";
-						base->int6->is_Data = (APTR)&(base->sc);
-						base->int6->is_Code = (void*)pca9564_isr;
+		LibBase->int6 = AllocMem(sizeof(struct Interrupt), MEMF_PUBLIC|MEMF_CLEAR);
 
-						AddIntServer(INTB_EXTER, base->int6);
+		if(LibBase->int6) {
+
+			if (IS_PCA9665(LibBase->LibGlobal.pca_type)) {
+				/* PCA9665 */
+				LibBase->int6->is_Node.ln_Type = NT_INTERRUPT;
+				LibBase->int6->is_Node.ln_Pri = -60;
+				LibBase->int6->is_Node.ln_Name = "PCA9665";
+				LibBase->int6->is_Data = (APTR)&(LibBase->LibGlobal);
+				LibBase->int6->is_Code = (void*)pca9665_isr;
+			} else {
+				/* all other cases: PCA9564 */
+				LibBase->int6->is_Node.ln_Type = NT_INTERRUPT;
+				LibBase->int6->is_Node.ln_Pri = -60;
+				LibBase->int6->is_Node.ln_Name = "PCA9564";
+				LibBase->int6->is_Data = (APTR)&(LibBase->LibGlobal);
+				LibBase->int6->is_Code = (void*)pca9564_isr;
+			}
+
+			AddIntServer(INTB_EXTER, LibBase->int6);
+
 		} else {
-						FreeSignal(base->sc.sig_intr);
-						return FALSE; // I2C_NO_MISC_RESOURCE;
+
+			FreeSignal(LibBase->LibGlobal.sig_intr);
+			detected = FALSE; // I2C_NO_MISC_RESOURCE;
+
 		}
-
-		return TRUE;
-	} else {
-		return FALSE;
-
 	}
+
+	return detected;
 }
 
 
-VOID FreeResources(struct MyLibBase *base)
+VOID FreeResources(struct MyLibBase *LibBase)
 {
-	RemIntServer(INTB_EXTER, base->int6);
-	FreeMem(base->int6, sizeof(struct Interrupt));
-	FreeSignal(base->sc.sig_intr);
+	RemIntServer(INTB_EXTER, LibBase->int6);
+	FreeMem(LibBase->int6, sizeof(struct Interrupt));
+	FreeSignal(LibBase->LibGlobal.sig_intr);
 }
 
 
@@ -396,93 +277,93 @@ APTR JumpTable[] =
 
 __saveds struct Library* LibInit(APTR seglist __asm("a0"), struct Library *sysbase __asm("a6"))
 {
-	struct MyLibBase *base = NULL;
+	struct MyLibBase *LibBase = NULL;
 
 	SysBase = sysbase;
 
-	if ((base = (struct MyLibBase*)MakeLibrary(JumpTable, NULL, NULL, sizeof(struct MyLibBase), 0)))
+	if ((LibBase = (struct MyLibBase*)MakeLibrary(JumpTable, NULL, NULL, sizeof(struct MyLibBase), 0)))
 	{
-		base->LibNode.lib_Node.ln_Type = NT_LIBRARY;
-		base->LibNode.lib_Node.ln_Name = ROMTag.rt_Name;
-		base->LibNode.lib_Flags = LIBF_CHANGED | LIBF_SUMUSED;
-		base->LibNode.lib_Version = VERSION;
-		base->LibNode.lib_Revision = REVISION;
-		base->LibNode.lib_IdString = ROMTag.rt_IdString;
-		base->LibNode.lib_OpenCnt = 0;
-		base->Seglist = seglist;
-		InitSemaphore(&base->BaseLock);
-		AddLibrary((struct Library*)base);
+		LibBase->LibNode.lib_Node.ln_Type = NT_LIBRARY;
+		LibBase->LibNode.lib_Node.ln_Name = ROMTag.rt_Name;
+		LibBase->LibNode.lib_Flags = LIBF_CHANGED | LIBF_SUMUSED;
+		LibBase->LibNode.lib_Version = VERSION;
+		LibBase->LibNode.lib_Revision = REVISION;
+		LibBase->LibNode.lib_IdString = ROMTag.rt_IdString;
+		LibBase->LibNode.lib_OpenCnt = 0;
+		LibBase->Seglist = seglist;
+		InitSemaphore(&LibBase->BaseLock);
+		AddLibrary((struct Library*)LibBase);
 	}
 
-	return (struct Library*)base;
+	return (struct Library*)LibBase;
 }
 
 
-__saveds struct Library* LibOpen(struct MyLibBase* base __asm("a6"))
+__saveds struct Library* LibOpen(struct MyLibBase* LibBase __asm("a6"))
 {
-	struct Library *lib = (struct Library*)base;
+	struct Library *lib = (struct Library*)LibBase;
 
-	ObtainSemaphore(&base->BaseLock);
+	ObtainSemaphore(&LibBase->BaseLock);
 
-	if (!base->InitFlag)
+	if (!LibBase->InitFlag)
 	{
-		if (InitResources(base))
-			base->InitFlag = TRUE;
+		if (InitResources(LibBase))
+			LibBase->InitFlag = TRUE;
 		else
 		{
-			FreeResources(base);
+			FreeResources(LibBase);
 			lib = NULL;
 		}
 	}
 
 	if (lib)
 	{
-		base->LibNode.lib_Flags &= ~LIBF_DELEXP;
-		base->LibNode.lib_OpenCnt++;
+		LibBase->LibNode.lib_Flags &= ~LIBF_DELEXP;
+		LibBase->LibNode.lib_OpenCnt++;
 	}
 
-	ReleaseSemaphore(&base->BaseLock);
-	if (!lib) LibExpunge(base);
+	ReleaseSemaphore(&LibBase->BaseLock);
+	if (!lib) LibExpunge(LibBase);
 	return lib;
 }
 
 
-__saveds ULONG LibClose(struct MyLibBase *base __asm("a6"))
+__saveds ULONG LibClose(struct MyLibBase *LibBase __asm("a6"))
 {
 	ULONG ret = 0;
 
-	ObtainSemaphore(&base->BaseLock);
+	ObtainSemaphore(&LibBase->BaseLock);
 
-	if (--base->LibNode.lib_OpenCnt == 0)
+	if (--LibBase->LibNode.lib_OpenCnt == 0)
 	{
-		if (base->LibNode.lib_Flags & LIBF_DELEXP)
-			ret = (ULONG)LibExpunge(base);
+		if (LibBase->LibNode.lib_Flags & LIBF_DELEXP)
+			ret = (ULONG)LibExpunge(LibBase);
 	}
 
-	if (ret == 0) ReleaseSemaphore(&base->BaseLock);
+	if (ret == 0) ReleaseSemaphore(&LibBase->BaseLock);
 	return ret;
 }
 
 
-__saveds APTR LibExpunge(struct MyLibBase *base __asm("a6"))
+__saveds APTR LibExpunge(struct MyLibBase *LibBase __asm("a6"))
 {
 	APTR seglist = NULL;
 
-	ObtainSemaphore(&base->BaseLock);
+	ObtainSemaphore(&LibBase->BaseLock);
 
-	if (base->LibNode.lib_OpenCnt == 0)
+	if (LibBase->LibNode.lib_OpenCnt == 0)
 	{
-		FreeResources(base);
+		FreeResources(LibBase);
 		Forbid();
-		Remove((struct Node*)base);
+		Remove((struct Node*)LibBase);
 		Permit();
-		seglist = base->Seglist;
-		FreeMem((UBYTE*)base - base->LibNode.lib_NegSize, base->LibNode.lib_NegSize + base->LibNode.lib_PosSize);
-		base = NULL;    /* freed memory, no more valid */
+		seglist = LibBase->Seglist;
+		FreeMem((UBYTE*)LibBase - LibBase->LibNode.lib_NegSize, LibBase->LibNode.lib_NegSize + LibBase->LibNode.lib_PosSize);
+		LibBase = NULL;    /* freed memory, no more valid */
 	}
-	else base->LibNode.lib_Flags |= LIBF_DELEXP;
+	else LibBase->LibNode.lib_Flags |= LIBF_DELEXP;
 
-	if (base) ReleaseSemaphore(&base->BaseLock);
+	if (LibBase) ReleaseSemaphore(&LibBase->BaseLock);
 	return seglist;
 }
 

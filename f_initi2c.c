@@ -26,16 +26,10 @@
 #include <libraries/i2c.h>
 
 
-__saveds void LibInitI2C(struct MyLibBase *base __asm("a6"))
+__saveds void LibInitI2C(struct MyLibBase *LibBase __asm("a6"))
 {
-	// set I2C to requested clock rate and activate internal oscilator
-	if (IS_PCA9665(base->sc.pca_type)) { 
-		clockport_write(&base->sc, PCA9665_SCLL, base->sc.PCA_ClockRate_low);
-		clockport_write(&base->sc, PCA9665_SCLH, base->sc.PCA_ClockRate_high);
-		clockport_write(&base->sc, PCA9665_MODE, base->sc.PCA_Mode);
-		clockport_write(&base->sc, PCA9665_CON, PCA9665_CON_ENSIO);
-	} else  {
-		clockport_write(&base->sc, PCA9564_I2C_PCA_CON, base->sc.PCA_ClockRate_low | PCA9564_I2C_PCA_CON_ENSIO);
-	}
+	/* init HW */
+	HW_init(&LibBase->LibGlobal);
+	/* TODO: set I2C status */
 
 }

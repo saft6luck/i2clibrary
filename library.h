@@ -6,8 +6,21 @@
 #ifndef I2C_LIBRARY_H
 #define I2C_LIBRARY_H
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <proto/exec.h>
+#include <proto/utility.h>
+#include <proto/dos.h>
+
+#include <exec/types.h>
+#include <exec/memory.h>
+#include <exec/interrupts.h>
 #include <exec/libraries.h>
 #include <exec/semaphores.h>
+
+#include <hardware/intbits.h>
+
 #include "library_common.h"
 #include "PCA9665.h"
 #include "PCA9564.h"
@@ -19,7 +32,7 @@ struct MyLibBase
 	struct SignalSemaphore  BaseLock;
 	BOOL                    InitFlag;
 
-	I2C_state_t             sc;
+	I2C_state_t             LibGlobal;
   struct Interrupt         *int6;
 };
 

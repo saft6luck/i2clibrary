@@ -27,7 +27,7 @@
 #include <libraries/i2c.h>
 
 
-__saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
+__saveds ULONG LibReceiveI2C(struct MyLibBase *LibBase __asm("a6"),
 	UBYTE addr __asm("d0"), UWORD number __asm("d1"), UBYTE* data __asm("a1"))
 {
 	LONG sig;
@@ -40,22 +40,22 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 	if( sig == -1 )
 		return 0;
 
-	base->sc.sigmask_intr = 1L << sig;
-	base->sc.MainTask = FindTask(NULL);
+	LibBase->LibGlobal.sigmask_intr = 1L << sig;
+	LibBase->LibGlobal.MainTask = FindTask(NULL);
 
-	ObtainSemaphore(&base->BaseLock);
+	ObtainSemaphore(&LibBase->BaseLock);
 
-	//LibInitI2C();
-	//ctrl = PCA9564_I2CCON_CR_330KHZ | PCA9564_I2CCON_ENSIO;
-	clockport_write(&base->sc, PCA9564_I2CCON, base->sc.PCA_ClockRate_low | PCA9564_I2CCON_ENSIO);
+	// TODO: fix I2C gets reset every time again
+    // init HW to ensure I2C is working
+	HW_init(&LibBase->LibGlobal);
 
-	pca9564_read(&base->sc, addr, number, &data);
+	I2C_read(&LibBase->LibGlobal, addr, number, &data);
 
-	ReleaseSemaphore(&base->BaseLock);
+	ReleaseSemaphore(&LibBase->BaseLock);
 
 	FreeSignal(sig);
 
-	if (base->sc.cur_result == RESULT_OK) {
+	if (LibBase->LibGlobal.cur_result == RESULT_OK) {
 		return number; //I2C_OK;
 	} else {
 		//		error - may be considered as three UBYTE's: 0x00AABBCC, with
@@ -80,9 +80,9 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
     //SCL_HI,              / read the clock line, but currently none can.
     //I2C_HARDW_BUSY       Hardware allocation failed
 
-		return ((base->sc.cur_result & 0xff) << 8);
+		return ((LibBase->LibGlobal.cur_result & 0xff) << 8);
 
-		switch(base->sc.cur_result) {
+		switch(LibBase->LibGlobal.cur_result) {
 				case 2: //RESULT_NACK:
 					return (2 << 8);
 					break;
@@ -90,7 +90,7 @@ __saveds ULONG LibReceiveI2C(struct MyLibBase *base __asm("a6"),
 					return (3 << 8);
 					break;
 				default:
-					return ((base->sc.cur_result & 0xff) << 8);
+					return ((LibBase->LibGlobal.cur_result & 0xff) << 8);
 				break;
 		}
 	}

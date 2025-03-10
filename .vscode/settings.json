@@ -1,5 +1,6 @@
 {
     "files.associations": {
         "akuhei2c.h": "c"
-    }
+    },
+    "makefile.makefilePath": "/home/admin/development/projects/a4000_i2clibrary/makefile"
 }
